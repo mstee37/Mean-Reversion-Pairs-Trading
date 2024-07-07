@@ -44,8 +44,8 @@ def go(startDate, endDate):
     
     print()
     
-    print(df['fut cash'].sum())
-    print(df["etf cash"].sum())
+    print("fut pnl = {}".format(df['fut cash'].sum()))
+    print("etf pnl = {}".format(df["etf cash"].sum()))
     print("total pnl = {}".format(df["fut cash"].sum()+df["etf cash"].sum()))
 
     df.to_csv("copper Fut VS ETF.csv", index=False)
