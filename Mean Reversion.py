@@ -50,9 +50,9 @@ def go(startDate, endDate):
 
     df.to_csv("copper Fut VS ETF.csv", index=False)
 
-    print(df["abs_sprd"].tail(1))
-    print(df["july24_rolling avg"].tail(1)) 
-    print(df["copx_rolling avg"].tail(1))
+    print("abs sprd = {}".format(df["abs_sprd"].tail(1).values))
+    print("fut 30-day rolling avg = {}".format(df["july24_rolling avg"].tail(1).values))
+    print("copx 30-day rolling avg = {}".format(df["copx_rolling avg"].tail(1).values))
     
     return None
     
@@ -192,6 +192,6 @@ def cointegrationTest(val1, val2):
 
 
 startDate = "2023-12-01"
-endDate = "2024-06-25"
+endDate = "2024-07-05"
 
 go(startDate, endDate)
