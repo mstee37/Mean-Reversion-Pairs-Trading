@@ -5,56 +5,6 @@ import statsmodels.api as sm
 from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
 
-
-
-def go(startDate, endDate, leverage):
-    
-    july24 = yf.download('HG=F', start=startDate, end=endDate)
-    copx = yf.download('copx', start=startDate, end=endDate)
-
-    july24["july24_dailyReturns"] = july24["Close"].pct_change().dropna()
-    copx["copx_dailyReturns"] = copx["Close"].pct_change().dropna()
-
-    #stationary test
-    print("Test for stationary futures")
-    stationaryTest(july24["july24_dailyReturns"].dropna())
-    print("Test for stationary etf")
-    stationaryTest(copx["copx_dailyReturns"].dropna())
-    print("cointegration Test for stationary futures vs etf")
-    cointegrationTest(july24["july24_dailyReturns"].dropna(), copx["copx_dailyReturns"].dropna())
-
-    combined_df = pd.concat([july24, copx], axis=1)
-    combined_df["spread"] = combined_df["july24_dailyReturns"] - combined_df["copx_dailyReturns"]
-    combined_df["abs_sprd"] = abs(combined_df["spread"])
-    combined_df["july24_rolling avg"] = combined_df["july24_dailyReturns"].rolling(window=30).std()
-    combined_df["copx_rolling avg"] = combined_df["copx_dailyReturns"].rolling(window=30).std()
-
-    plt.figure(figsize=(12,6))
-    plt.plot(combined_df["july24_dailyReturns"], label="futures DR")
-    plt.plot(combined_df["copx_dailyReturns"], label="copx DR")
-    plt.plot(combined_df["july24_rolling avg"], label="fut rolling")
-    plt.plot(combined_df["copx_rolling avg"], label="etf rolling")
-    plt.plot(combined_df["abs_sprd"], label="sprd", linestyle="--")
-    plt.legend()
-    plt.show()
-    
-    df = signal(combined_df)
-    df = df_column_uniquify(df)
-    df = pnl(df, leverage)
-    
-    print()
-    
-    print("fut pnl = {}".format(df['fut cash'].sum()))
-    print("etf pnl = {}".format(df["etf cash"].sum()))
-    print("total pnl = {}".format(df["fut cash"].sum()+df["etf cash"].sum()))
-
-    df.to_csv("copper Fut VS ETF.csv", index=False)
-
-    print("abs sprd = {}".format(df["abs_sprd"].tail(1).values))
-    print("fut 30-day rolling avg = {}".format(df["july24_rolling avg"].tail(1).values))
-    print("copx 30-day rolling avg = {}".format(df["copx_rolling avg"].tail(1).values))
-    
-    return None
     
 def signal(df):
     
@@ -68,8 +18,8 @@ def signal(df):
     while i < len(df.index):
         
         absSprd = df.loc[i, "abs_sprd"]
-        fut_rolling_avg = df.loc[i, "july24_rolling avg"]
-        etf_rolling_avg = df.loc[i, "copx_rolling avg"]
+        fut_rolling_avg = df.loc[i, "stock1_rolling avg"]
+        etf_rolling_avg = df.loc[i, "stock2_rolling avg"]
         
         if absSprd > fut_rolling_avg and absSprd > etf_rolling_avg:
             df.loc[i, "signal"] = 1
@@ -106,7 +56,7 @@ def df_column_uniquify(df):
 
 def pnl(df, leverage):
     df["leverage"] = leverage
-    df["ratio"] = abs(df["Close_1"] * df["copx_dailyReturns"]) / abs(df["Close"] * df["july24_dailyReturns"])
+    df["ratio"] = abs(df["Close_1"] * df["stock2_dailyReturns"]) / abs(df["Close"] * df["stock1_dailyReturns"])
     
     # Initialize new columns
     df["fut ntl"] = 0.0
@@ -121,15 +71,15 @@ def pnl(df, leverage):
         
         if df.loc[i, "axe"] == 1:
             
-            if abs(df.loc[i, 'july24_dailyReturns']) > abs(df.loc[i, 'copx_dailyReturns']):
-                if df.loc[i, 'july24_dailyReturns'] > 0:
+            if abs(df.loc[i, 'stock1_dailyReturns']) > abs(df.loc[i, 'stock2_dailyReturns']):
+                if df.loc[i, 'stock1_dailyReturns'] > 0:
                     df.loc[i, "fut ntl"] = df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"]
                     df.loc[i, "etf ntl"] = df.loc[i, "leverage"]
                 else:
                     df.loc[i, "fut ntl"] = df.loc[i, "ratio"] * df.loc[i, "leverage"]
                     df.loc[i, "etf ntl"] = -1 * df.loc[i, "leverage"]
             else:
-                if df.loc[i, 'copx_dailyReturns'] > 0:
+                if df.loc[i, 'stock2_dailyReturns'] > 0:
                     df.loc[i, "fut ntl"] = df.loc[i, "ratio"] * df.loc[i, "leverage"]
                     df.loc[i, "etf ntl"] = -1 * df.loc[i, "leverage"]
                 else:
@@ -190,9 +140,59 @@ def cointegrationTest(val1, val2):
     else:
         print("The series are not cointegrated (not stationary together).")
 
+def go(ticker1, ticker2, startDate, endDate, leverage):
+    
+    stock1 = yf.download(ticker1, start=startDate, end=endDate)
+    stock2 = yf.download(ticker2, start=startDate, end=endDate)
 
+    stock1["stock1_dailyReturns"] = stock1["Close"].pct_change().dropna()
+    stock2["stock2_dailyReturns"] = stock2["Close"].pct_change().dropna()
+
+    #stationary test
+    print("Test for stationary futures")
+    stationaryTest(stock1["stock1_dailyReturns"].dropna())
+    print("Test for stationary etf")
+    stationaryTest(stock2["stock2_dailyReturns"].dropna())
+    print("cointegration Test for stationary futures vs etf")
+    cointegrationTest(stock1["stock1_dailyReturns"].dropna(), stock2["stock2_dailyReturns"].dropna())
+
+    combined_df = pd.concat([stock1, stock2], axis=1)
+    combined_df["spread"] = combined_df["stock1_dailyReturns"] - combined_df["stock2_dailyReturns"]
+    combined_df["abs_sprd"] = abs(combined_df["spread"])
+    combined_df["stock1_rolling avg"] = combined_df["stock1_dailyReturns"].rolling(window=30).std()
+    combined_df["stock2_rolling avg"] = combined_df["stock2_dailyReturns"].rolling(window=30).std()
+
+    plt.figure(figsize=(12,6))
+    plt.plot(combined_df["stock1_dailyReturns"], label="stock1 dailyReturns")
+    plt.plot(combined_df["stock2_dailyReturns"], label="stock2 dailyReturns")
+    plt.plot(combined_df["stock1_rolling avg"], label="stock1 rolling")
+    plt.plot(combined_df["stock2_rolling avg"], label="stock2 rolling")
+    plt.plot(combined_df["abs_sprd"], label="sprd", linestyle="--")
+    plt.legend()
+    plt.show()
+    
+    df = signal(combined_df)
+    df = df_column_uniquify(df)
+    df = pnl(df, leverage)
+    
+    print()
+    
+    print("fut pnl = {}".format(df['fut cash'].sum()))
+    print("etf pnl = {}".format(df["etf cash"].sum()))
+    print("total pnl = {}".format(df["fut cash"].sum()+df["etf cash"].sum()))
+
+    df.to_csv("copper Fut VS ETF.csv", index=False)
+
+    print("abs sprd = {}".format(df["abs_sprd"].tail(1).values))
+    print("stock1 30-day rolling avg = {}".format(df["stock1_rolling avg"].tail(1).values))
+    print("stock2 30-day rolling avg = {}".format(df["stock2_rolling avg"].tail(1).values))
+    
+    return None
+
+ticker1 = "HG=F"
+ticker2 = "copx"
 startDate = "2024-01-01"
 endDate = "2024-07-23"
 leverage = 1
 
-go(startDate, endDate, leverage)
+go(ticker1, ticker2, startDate, endDate, leverage)
