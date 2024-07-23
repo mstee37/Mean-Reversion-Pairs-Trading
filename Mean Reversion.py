@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 
-def go(startDate, endDate):
+def go(startDate, endDate, leverage):
     
     july24 = yf.download('HG=F', start=startDate, end=endDate)
     copx = yf.download('copx', start=startDate, end=endDate)
@@ -40,7 +40,7 @@ def go(startDate, endDate):
     
     df = signal(combined_df)
     df = df_column_uniquify(df)
-    df = pnl(df, 1)
+    df = pnl(df, leverage)
     
     print()
     
@@ -191,7 +191,8 @@ def cointegrationTest(val1, val2):
         print("The series are not cointegrated (not stationary together).")
 
 
-startDate = "2023-12-01"
-endDate = "2024-07-05"
+startDate = "2024-01-01"
+endDate = "2024-07-23"
+leverage = 1
 
-go(startDate, endDate)
+go(startDate, endDate, leverage)
