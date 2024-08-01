@@ -6,7 +6,7 @@ from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
 
     
-def signal(df):
+def signal(df,ticker1,ticker2):
     
     df.reset_index(inplace=True)
     
@@ -18,10 +18,10 @@ def signal(df):
     while i < len(df.index):
         
         absSprd = df.loc[i, "abs_sprd"]
-        fut_rolling_avg = df.loc[i, "stock1_rolling avg"]
-        etf_rolling_avg = df.loc[i, "stock2_rolling avg"]
+        stock1_rolling_avg = df.loc[i, ticker1+"_rolling avg"]
+        stock2_rolling_avg = df.loc[i, ticker2+"_rolling avg"]
         
-        if absSprd > fut_rolling_avg and absSprd > etf_rolling_avg:
+        if absSprd > stock1_rolling_avg and absSprd > stock2_rolling_avg:
             df.loc[i, "signal"] = 1
             currSprdDir = df.loc[i, "isSprdPos"]
             # print(i, currSprdDir)
@@ -54,9 +54,9 @@ def df_column_uniquify(df):
     df.columns = new_columns
     return df
 
-def pnl(df, leverage):
+def pnl(df, leverage, ticker1, ticker2):
     df["leverage"] = leverage
-    df["ratio"] = abs(df["Close_1"] * df["stock2_dailyReturns"]) / abs(df["Close"] * df["stock1_dailyReturns"])
+    df["ratio"] = abs(df["Close_1"] * df[ticker2+"_dailyReturns"]) / abs(df["Close"] * df[ticker1+"_dailyReturns"])
     
     # Initialize new columns
     df["stock1 ntl"] = 0.0
@@ -67,19 +67,23 @@ def pnl(df, leverage):
     i = 30
     currFutNtl, currEtfNtl = 0, 0
     
+    # naming convention
+    dailyReturn1 = ticker1+"_dailyReturns"
+    dailyReturn2 = ticker2+"_dailyReturns"
+    
     while i < len(df.index):
         
         if df.loc[i, "axe"] == 1:
             
-            if abs(df.loc[i, 'stock1_dailyReturns']) > abs(df.loc[i, 'stock2_dailyReturns']):
-                if df.loc[i, 'stock1_dailyReturns'] > 0:
+            if abs(df.loc[i, dailyReturn1]) > abs(df.loc[i, dailyReturn2]):
+                if df.loc[i, dailyReturn1] > 0:
                     df.loc[i, "stock1 ntl"] = df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"]
                     df.loc[i, "stock2 ntl"] = df.loc[i, "leverage"]
                 else:
                     df.loc[i, "stock1 ntl"] = df.loc[i, "ratio"] * df.loc[i, "leverage"]
                     df.loc[i, "stock2 ntl"] = -1 * df.loc[i, "leverage"]
             else:
-                if df.loc[i, 'stock2_dailyReturns'] > 0:
+                if df.loc[i, dailyReturn2] > 0:
                     df.loc[i, "stock1 ntl"] = df.loc[i, "ratio"] * df.loc[i, "leverage"]
                     df.loc[i, "stock2 ntl"] = -1 * df.loc[i, "leverage"]
                 else:
@@ -144,49 +148,49 @@ def go(ticker1, ticker2, startDate, endDate, leverage):
     
     stock1 = yf.download(ticker1, start=startDate, end=endDate)
     stock2 = yf.download(ticker2, start=startDate, end=endDate)
-
-    stock1["stock1_dailyReturns"] = stock1["Close"].pct_change().dropna()
-    stock2["stock2_dailyReturns"] = stock2["Close"].pct_change().dropna()
+    
+    stock1[ticker1+"_dailyReturns"] = stock1["Close"].pct_change().dropna()
+    stock2[ticker2+"_dailyReturns"] = stock2["Close"].pct_change().dropna()
 
     #stationary test
-    print("Test for stationary stock 1")
-    stationaryTest(stock1["stock1_dailyReturns"].dropna())
-    print("Test for stationary stock 2")
-    stationaryTest(stock2["stock2_dailyReturns"].dropna())
-    print("cointegration Test for stationary stock 1 vs stock 2")
-    cointegrationTest(stock1["stock1_dailyReturns"].dropna(), stock2["stock2_dailyReturns"].dropna())
+    print(f"Test for stationary {ticker1}")
+    stationaryTest(stock1[ticker1+"_dailyReturns"].dropna())
+    print(f"Test for stationary {ticker2}")
+    stationaryTest(stock2[ticker2+"_dailyReturns"].dropna())
+    print(f"cointegration Test for stationary {ticker1} vs {ticker2}")
+    cointegrationTest(stock1[ticker1+"_dailyReturns"].dropna(), stock2[ticker2+"_dailyReturns"].dropna())
 
     combined_df = pd.concat([stock1, stock2], axis=1)
-    combined_df["spread"] = combined_df["stock1_dailyReturns"] - combined_df["stock2_dailyReturns"]
+    combined_df["spread"] = combined_df[ticker1+"_dailyReturns"] - combined_df[ticker2+"_dailyReturns"]
     combined_df["abs_sprd"] = abs(combined_df["spread"])
-    combined_df["stock1_rolling avg"] = combined_df["stock1_dailyReturns"].rolling(window=30).std()
-    combined_df["stock2_rolling avg"] = combined_df["stock2_dailyReturns"].rolling(window=30).std()
+    combined_df[ticker1+"_rolling avg"] = combined_df[ticker1+"_dailyReturns"].rolling(window=30).std()
+    combined_df[ticker2+"_rolling avg"] = combined_df[ticker2+"_dailyReturns"].rolling(window=30).std()
     
     plt.figure(figsize=(12,6))
-    plt.plot(combined_df["stock1_dailyReturns"], label="stock1 dailyReturns")
-    plt.plot(combined_df["stock2_dailyReturns"], label="stock2 dailyReturns")
-    plt.plot(combined_df["stock1_rolling avg"], label="stock1 rolling")
-    plt.plot(combined_df["stock2_rolling avg"], label="stock2 rolling")
+    plt.plot(combined_df[ticker1+"_dailyReturns"], label=ticker1+" dailyReturns")
+    plt.plot(combined_df[ticker2+"_dailyReturns"], label=ticker2+" dailyReturns")
+    plt.plot(combined_df[ticker1+"_rolling avg"], label=ticker1+" rolling")
+    plt.plot(combined_df[ticker2+"_rolling avg"], label=ticker2+" rolling")
     plt.plot(combined_df["abs_sprd"], label="sprd", linestyle="--")
     plt.legend()
     plt.grid(True)
     plt.show()
     
-    df = signal(combined_df)
+    df = signal(combined_df,ticker1,ticker2)
     df = df_column_uniquify(df)
-    df = pnl(df, leverage)
+    df = pnl(df, leverage,ticker1,ticker2)
     
     print()
     
-    print("stock1 pnl = {}".format(df['stock1 cash'].sum()))
-    print("stock2 pnl = {}".format(df["stock2 cash"].sum()))
+    print("{} pnl = {}".format(ticker1, df['stock1 cash'].sum()))
+    print("{} pnl = {}".format(ticker2, df["stock2 cash"].sum()))
     print("total pnl = {}".format(df["stock1 cash"].sum()+df["stock2 cash"].sum()))
 
-    df.to_csv("copper Fut VS ETF.csv", index=False)
+    df.to_csv(ticker1+" VS "+ticker2+".csv", index=False)
 
     print("abs sprd = {}".format(df["abs_sprd"].tail(1).values))
-    print("stock1 30-day rolling avg = {}".format(df["stock1_rolling avg"].tail(1).values))
-    print("stock2 30-day rolling avg = {}".format(df["stock2_rolling avg"].tail(1).values))
+    print("{} 30-day rolling avg = {}".format(ticker1,df[ticker1+"_rolling avg"].tail(1).values))
+    print("{} 30-day rolling avg = {}".format(ticker2,df[ticker2+"_rolling avg"].tail(1).values))
     
     return None
 
