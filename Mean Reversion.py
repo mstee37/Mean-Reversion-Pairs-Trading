@@ -56,7 +56,7 @@ def df_column_uniquify(df):
 
 def pnl(df, leverage, ticker1, ticker2):
     df["leverage"] = leverage
-    df["ratio"] = abs(df["Close_1"] * df[ticker2+"_dailyReturns"]) / abs(df["Close"] * df[ticker1+"_dailyReturns"])
+    df["ratio"] = round(abs(df["Close_1"] * df[ticker2+"_dailyReturns"]) / abs(df["Close"] * df[ticker1+"_dailyReturns"]),0)
     
     # Initialize new columns
     df["stock1 ntl"] = 0.0
@@ -101,7 +101,11 @@ def pnl(df, leverage, ticker1, ticker2):
             df.loc[i, "stock2 cash"] =  currEtfNtl * df.loc[i, "Close_1"]
             
             currFutNtl, currEtfNtl = 0, 0
-    
+
+        elif df.loc[i, "signal"] == 1:
+            # calculate exposure for opened positions
+            pass
+        
         i += 1
         
     return df
@@ -194,10 +198,14 @@ def go(ticker1, ticker2, startDate, endDate, leverage):
     
     return None
 
-ticker1 = "HG=F"
-ticker2 = "copx"
+# parameters input 
+# ticker 1 -> lower spot price
+# ticker 2 -> higher spot price
+
+ticker1 = "NVDA" # HG=F (copper futures)
+ticker2 = "AMD" # copx (copper ETF)
 startDate = "2024-01-01"
 endDate = "2024-07-23"
-leverage = 1
+leverage = 5
 
 go(ticker1, ticker2, startDate, endDate, leverage)
