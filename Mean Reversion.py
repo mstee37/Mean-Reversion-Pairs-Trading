@@ -4,7 +4,7 @@ import numpy as np
 import statsmodels.api as sm
 from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
-
+import math
     
 def signal(df,ticker1,ticker2):
     
@@ -56,7 +56,7 @@ def df_column_uniquify(df):
 
 def pnl(df, leverage, ticker1, ticker2):
     df["leverage"] = leverage
-    df["ratio"] = round(abs(df["Close_1"] * df[ticker2+"_dailyReturns"]) / abs(df["Close"] * df[ticker1+"_dailyReturns"]),0)
+    df["ratio"] = abs(df["Close_1"] * df[ticker2+"_dailyReturns"]) / abs(df["Close"] * df[ticker1+"_dailyReturns"])
     
     # Initialize new columns
     df["stock1 ntl"] = 0.0
@@ -64,8 +64,8 @@ def pnl(df, leverage, ticker1, ticker2):
     df["stock1 cash"] = 0.0
     df["stock2 cash"] = 0.0
     
-    i = 30
-    currFutNtl, currEtfNtl = 0, 0
+    i = 30 # to update as rolling window number
+    currStock1Ntl, currStock2Ntl = 0, 0
     
     # naming convention
     dailyReturn1 = ticker1+"_dailyReturns"
@@ -77,33 +77,36 @@ def pnl(df, leverage, ticker1, ticker2):
             
             if abs(df.loc[i, dailyReturn1]) > abs(df.loc[i, dailyReturn2]):
                 if df.loc[i, dailyReturn1] > 0:
-                    df.loc[i, "stock1 ntl"] = df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"]
+                    df.loc[i, "stock1 ntl"] = np.floor(df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"])
                     df.loc[i, "stock2 ntl"] = df.loc[i, "leverage"]
                 else:
-                    df.loc[i, "stock1 ntl"] = df.loc[i, "ratio"] * df.loc[i, "leverage"]
+                    df.loc[i, "stock1 ntl"] = np.ceil(df.loc[i, "ratio"] * df.loc[i, "leverage"])
                     df.loc[i, "stock2 ntl"] = -1 * df.loc[i, "leverage"]
             else:
                 if df.loc[i, dailyReturn2] > 0:
-                    df.loc[i, "stock1 ntl"] = df.loc[i, "ratio"] * df.loc[i, "leverage"]
+                    df.loc[i, "stock1 ntl"] = np.ceil(df.loc[i, "ratio"] * df.loc[i, "leverage"])
                     df.loc[i, "stock2 ntl"] = -1 * df.loc[i, "leverage"]
                 else:
-                    df.loc[i, "stock1 ntl"] = df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"]
+                    df.loc[i, "stock1 ntl"] = np.floor(df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"])
                     df.loc[i, "stock2 ntl"] = df.loc[i, "leverage"]
                     
             df.loc[i, "stock1 cash"] = df.loc[i, "stock1 ntl"] * df.loc[i, "Close"] * -1
             df.loc[i, "stock2 cash"] = df.loc[i, "stock2 ntl"] * df.loc[i, "Close_1"] * -1
                     
-            currFutNtl = df.loc[i, "stock1 ntl"]
-            currEtfNtl = df.loc[i, "stock2 ntl"]
+            currStock1Ntl = df.loc[i, "stock1 ntl"]
+            currStock2Ntl = df.loc[i, "stock2 ntl"]
 
         elif df.loc[i, "axe"] == -1:
-            df.loc[i, "stock1 cash"] = currFutNtl * df.loc[i, "Close"]
-            df.loc[i, "stock2 cash"] =  currEtfNtl * df.loc[i, "Close_1"]
+            df.loc[i, "stock1 cash"] = currStock1Ntl * df.loc[i, "Close"]
+            df.loc[i, "stock2 cash"] =  currStock2Ntl * df.loc[i, "Close_1"]
             
-            currFutNtl, currEtfNtl = 0, 0
+            df.loc[i, "stock1 ntl"] = -currStock1Ntl
+            df.loc[i, "stock2 ntl"] = -currStock2Ntl
+            
+            currStock1Ntl, currStock2Ntl = 0, 0
 
         elif df.loc[i, "signal"] == 1:
-            # calculate exposure for opened positions
+            # calculate MTM exposure for opened positions
             pass
         
         i += 1
@@ -167,8 +170,8 @@ def go(ticker1, ticker2, startDate, endDate, leverage):
     combined_df = pd.concat([stock1, stock2], axis=1)
     combined_df["spread"] = combined_df[ticker1+"_dailyReturns"] - combined_df[ticker2+"_dailyReturns"]
     combined_df["abs_sprd"] = abs(combined_df["spread"])
-    combined_df[ticker1+"_rolling avg"] = combined_df[ticker1+"_dailyReturns"].rolling(window=30).std()
-    combined_df[ticker2+"_rolling avg"] = combined_df[ticker2+"_dailyReturns"].rolling(window=30).std()
+    combined_df[ticker1+"_rolling avg"] = combined_df[ticker1+"_dailyReturns"].rolling(window=5).std()
+    combined_df[ticker2+"_rolling avg"] = combined_df[ticker2+"_dailyReturns"].rolling(window=5).std()
     
     plt.figure(figsize=(12,6))
     plt.plot(combined_df[ticker1+"_dailyReturns"], label=ticker1+" dailyReturns")
@@ -183,6 +186,10 @@ def go(ticker1, ticker2, startDate, endDate, leverage):
     df = signal(combined_df,ticker1,ticker2)
     df = df_column_uniquify(df)
     df = pnl(df, leverage,ticker1,ticker2)
+
+    df["Live/Closed"] = ""
+    df["Live/Closed"] = np.where((df["signal"] == 1) | (df["axe"] == 1), "Live", df["Live/Closed"])
+    df["Live/Closed"] = np.where(df["axe"] == -1, "Closed", df["Live/Closed"])
     
     print()
     
@@ -205,7 +212,8 @@ def go(ticker1, ticker2, startDate, endDate, leverage):
 ticker1 = "NVDA" # HG=F (copper futures)
 ticker2 = "AMD" # copx (copper ETF)
 startDate = "2024-01-01"
-endDate = "2024-07-23"
+endDate = "2024-08-02"
 leverage = 5
+rollingWindowForStd = 5 # to add in as variable
 
 go(ticker1, ticker2, startDate, endDate, leverage)
