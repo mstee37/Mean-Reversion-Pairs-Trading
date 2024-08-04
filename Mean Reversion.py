@@ -4,7 +4,6 @@ import numpy as np
 import statsmodels.api as sm
 from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
-import math
     
 def signal(df,ticker1,ticker2):
     
@@ -13,7 +12,8 @@ def signal(df,ticker1,ticker2):
     df["isSprdPos"] = np.where(df["spread"] >= 0, 1, 0)
     df["signal"] = 0 
     
-    i = 30
+    # based on rolling window; to be accounted in para
+    i = 5
     
     while i < len(df.index):
         
@@ -58,14 +58,29 @@ def pnl(df, leverage, ticker1, ticker2):
     df["leverage"] = leverage
     df["ratio"] = abs(df["Close_1"] * df[ticker2+"_dailyReturns"]) / abs(df["Close"] * df[ticker1+"_dailyReturns"])
     
-    # Initialize new columns
-    df["stock1 ntl"] = 0.0
-    df["stock2 ntl"] = 0.0
-    df["stock1 cash"] = 0.0
-    df["stock2 cash"] = 0.0
+    # naming
     
-    i = 30 # to update as rolling window number
+    # Initialize new columns
+    
+    ticker1Ntl = ticker1+"_Size"
+    ticker2Ntl = ticker2+"_Size"
+    ticker1Cash = ticker1+"_Cashflow"
+    ticker2Cash = ticker2+"_Cashflow"
+    
+    df[ticker1Ntl] = 0.0
+    df[ticker2Ntl] = 0.0
+    df[ticker1Cash] = 0.0
+    df[ticker2Cash] = 0.0
+    
+    ticker1MTM = ticker1+"_MTM"
+    ticker2MTM = ticker2+"_MTM"
+    df[ticker1MTM] = 0.0
+    df[ticker2MTM] = 0.0
+    
+    i = 5 # to update as rolling window number
+    
     currStock1Ntl, currStock2Ntl = 0, 0
+    currStock1Cash, currStock2Cash = 0, 0
     
     # naming convention
     dailyReturn1 = ticker1+"_dailyReturns"
@@ -77,37 +92,54 @@ def pnl(df, leverage, ticker1, ticker2):
             
             if abs(df.loc[i, dailyReturn1]) > abs(df.loc[i, dailyReturn2]):
                 if df.loc[i, dailyReturn1] > 0:
-                    df.loc[i, "stock1 ntl"] = np.floor(df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"])
-                    df.loc[i, "stock2 ntl"] = df.loc[i, "leverage"]
+                    df.loc[i, ticker1Ntl] = np.floor(df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"])
+                    df.loc[i, ticker2Ntl] = df.loc[i, "leverage"]
                 else:
-                    df.loc[i, "stock1 ntl"] = np.ceil(df.loc[i, "ratio"] * df.loc[i, "leverage"])
-                    df.loc[i, "stock2 ntl"] = -1 * df.loc[i, "leverage"]
+                    df.loc[i, ticker1Ntl] = np.ceil(df.loc[i, "ratio"] * df.loc[i, "leverage"])
+                    df.loc[i, ticker2Ntl] = -1 * df.loc[i, "leverage"]
             else:
                 if df.loc[i, dailyReturn2] > 0:
-                    df.loc[i, "stock1 ntl"] = np.ceil(df.loc[i, "ratio"] * df.loc[i, "leverage"])
-                    df.loc[i, "stock2 ntl"] = -1 * df.loc[i, "leverage"]
+                    df.loc[i, ticker1Ntl] = np.ceil(df.loc[i, "ratio"] * df.loc[i, "leverage"])
+                    df.loc[i, ticker2Ntl] = -1 * df.loc[i, "leverage"]
                 else:
-                    df.loc[i, "stock1 ntl"] = np.floor(df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"])
-                    df.loc[i, "stock2 ntl"] = df.loc[i, "leverage"]
+                    df.loc[i, ticker1Ntl] = np.floor(df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"])
+                    df.loc[i, ticker2Ntl] = df.loc[i, "leverage"]
                     
-            df.loc[i, "stock1 cash"] = df.loc[i, "stock1 ntl"] * df.loc[i, "Close"] * -1
-            df.loc[i, "stock2 cash"] = df.loc[i, "stock2 ntl"] * df.loc[i, "Close_1"] * -1
+            df.loc[i, ticker1Cash] = df.loc[i, ticker1Ntl] * df.loc[i, "Close"] * -1
+            df.loc[i, ticker2Cash] = df.loc[i, ticker2Ntl] * df.loc[i, "Close_1"] * -1
                     
-            currStock1Ntl = df.loc[i, "stock1 ntl"]
-            currStock2Ntl = df.loc[i, "stock2 ntl"]
+            currStock1Ntl = df.loc[i, ticker1Ntl]
+            currStock2Ntl = df.loc[i, ticker2Ntl]
+            currStock1Cash, currStock2Cash = df.loc[i, ticker1Cash], df.loc[i, ticker2Cash]
 
-        elif df.loc[i, "axe"] == -1:
-            df.loc[i, "stock1 cash"] = currStock1Ntl * df.loc[i, "Close"]
-            df.loc[i, "stock2 cash"] =  currStock2Ntl * df.loc[i, "Close_1"]
+        elif df.loc[i, "axe"] == -1: # Closed
+            df.loc[i, ticker1Cash] = currStock1Ntl * df.loc[i, "Close"]
+            df.loc[i, ticker2Cash] =  currStock2Ntl * df.loc[i, "Close_1"]
             
-            df.loc[i, "stock1 ntl"] = -currStock1Ntl
-            df.loc[i, "stock2 ntl"] = -currStock2Ntl
+            df.loc[i, ticker1Ntl] = -currStock1Ntl
+            df.loc[i, ticker2Ntl] = -currStock2Ntl
             
+            # MTM calculation
+            df.loc[i,ticker1MTM] = df.loc[i, ticker1Cash] + currStock1Cash
+            df.loc[i,ticker2MTM] = df.loc[i, ticker2Cash] + currStock2Cash
+            
+            # reset to 0 after closing trade
             currStock1Ntl, currStock2Ntl = 0, 0
+            currStock1Cash, currStock2Cash = 0, 0
 
-        elif df.loc[i, "signal"] == 1:
+        elif df.loc[i, "signal"] == 1: # live trade
+            
             # calculate MTM exposure for opened positions
-            pass
+            
+            df.loc[i, ticker1Cash] = currStock1Ntl * df.loc[i, "Close"]
+            df.loc[i, ticker2Cash] = currStock2Ntl * df.loc[i, "Close_1"]
+            
+            df.loc[i, ticker1Ntl] = -currStock1Ntl
+            df.loc[i, ticker2Ntl] = -currStock2Ntl
+            
+            # MTM calculation
+            df.loc[i,ticker1MTM] = df.loc[i, ticker1Cash] + currStock1Cash
+            df.loc[i,ticker2MTM] = df.loc[i, ticker2Cash] + currStock2Cash
         
         i += 1
         
@@ -187,15 +219,25 @@ def go(ticker1, ticker2, startDate, endDate, leverage):
     df = df_column_uniquify(df)
     df = pnl(df, leverage,ticker1,ticker2)
 
-    df["Live/Closed"] = ""
-    df["Live/Closed"] = np.where((df["signal"] == 1) | (df["axe"] == 1), "Live", df["Live/Closed"])
-    df["Live/Closed"] = np.where(df["axe"] == -1, "Closed", df["Live/Closed"])
+    # func to label opened/live/closed trades
+    df["Live Trades"] = ""
+    df["Live Trades"] = np.where(df["axe"] == 1, "Opened", df["Live Trades"])
+    df["Live Trades"] = np.where((df["signal"] == 1) & (df["axe"] == 0), "Live", df["Live Trades"])
+    df["Live Trades"] = np.where(df["axe"] == -1, "Closed", df["Live Trades"])
     
+    ticker1Cash = ticker1+"_Cashflow"
+    ticker2Cash = ticker2+"_Cashflow"
+    
+    df[ticker1+"_PnL"] = 0
+    df[ticker2+"_PnL"] = 0
+    df[ticker1+"_PnL"] = np.where((df["Live Trades"] == "Opened") | (df["Live Trades"] == "Closed"), df[ticker1Cash], 0)
+    df[ticker2+"_PnL"] = np.where((df["Live Trades"] == "Opened") | (df["Live Trades"] == "Closed"), df[ticker2Cash], 0)
+            
     print()
     
-    print("{} pnl = {}".format(ticker1, df['stock1 cash'].sum()))
-    print("{} pnl = {}".format(ticker2, df["stock2 cash"].sum()))
-    print("total pnl = {}".format(df["stock1 cash"].sum()+df["stock2 cash"].sum()))
+    print("{} pnl = {}".format(ticker1, df[ticker1+"_PnL"].sum()))
+    print("{} pnl = {}".format(ticker2, df[ticker2+"_PnL"].sum()))
+    print("total pnl = {}".format(df[ticker1+"_PnL"].sum()+df[ticker2+"_PnL"].sum()))
 
     df.to_csv(ticker1+" VS "+ticker2+".csv", index=False)
 
