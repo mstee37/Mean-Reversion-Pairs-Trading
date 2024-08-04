@@ -5,7 +5,7 @@ import statsmodels.api as sm
 from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
     
-def signal(df,ticker1,ticker2):
+def signal(df,ticker1,ticker2,rollingWindow):
     
     df.reset_index(inplace=True)
     
@@ -13,7 +13,7 @@ def signal(df,ticker1,ticker2):
     df["signal"] = 0 
     
     # based on rolling window; to be accounted in para
-    i = 5
+    i = rollingWindow
     
     while i < len(df.index):
         
@@ -54,7 +54,7 @@ def df_column_uniquify(df):
     df.columns = new_columns
     return df
 
-def pnl(df, leverage, ticker1, ticker2):
+def pnl(df, leverage, ticker1, ticker2, rollingWindow):
     df["leverage"] = leverage
     df["ratio"] = abs(df["Close_1"] * df[ticker2+"_dailyReturns"]) / abs(df["Close"] * df[ticker1+"_dailyReturns"])
     
@@ -77,7 +77,7 @@ def pnl(df, leverage, ticker1, ticker2):
     df[ticker1MTM] = 0.0
     df[ticker2MTM] = 0.0
     
-    i = 5 # to update as rolling window number
+    i = rollingWindow # to update as rolling window number
     
     currStock1Ntl, currStock2Ntl = 0, 0
     currStock1Cash, currStock2Cash = 0, 0
@@ -183,7 +183,7 @@ def cointegrationTest(val1, val2):
     else:
         print("The series are not cointegrated (not stationary together).")
 
-def go(ticker1, ticker2, startDate, endDate, leverage):
+def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow):
     
     stock1 = yf.download(ticker1, start=startDate, end=endDate)
     stock2 = yf.download(ticker2, start=startDate, end=endDate)
@@ -202,22 +202,22 @@ def go(ticker1, ticker2, startDate, endDate, leverage):
     combined_df = pd.concat([stock1, stock2], axis=1)
     combined_df["spread"] = combined_df[ticker1+"_dailyReturns"] - combined_df[ticker2+"_dailyReturns"]
     combined_df["abs_sprd"] = abs(combined_df["spread"])
-    combined_df[ticker1+"_rolling avg"] = combined_df[ticker1+"_dailyReturns"].rolling(window=5).std()
-    combined_df[ticker2+"_rolling avg"] = combined_df[ticker2+"_dailyReturns"].rolling(window=5).std()
+    combined_df[ticker1+"_rolling avg"] = combined_df[ticker1+"_dailyReturns"].rolling(window=rollingWindow).std()
+    combined_df[ticker2+"_rolling avg"] = combined_df[ticker2+"_dailyReturns"].rolling(window=rollingWindow).std()
     
     plt.figure(figsize=(12,6))
     plt.plot(combined_df[ticker1+"_dailyReturns"], label=ticker1+" dailyReturns")
     plt.plot(combined_df[ticker2+"_dailyReturns"], label=ticker2+" dailyReturns")
-    plt.plot(combined_df[ticker1+"_rolling avg"], label=ticker1+" rolling")
-    plt.plot(combined_df[ticker2+"_rolling avg"], label=ticker2+" rolling")
-    plt.plot(combined_df["abs_sprd"], label="sprd", linestyle="--")
+    plt.plot(combined_df[ticker1+"_rolling avg"], label=ticker1+" rollingWindow = "+str(rollingWindow))
+    plt.plot(combined_df[ticker2+"_rolling avg"], label=ticker2+" rollingWindow = "+str(rollingWindow))
+    plt.plot(combined_df["abs_sprd"], label="abs sprd", linestyle="--")
     plt.legend()
     plt.grid(True)
     plt.show()
     
-    df = signal(combined_df,ticker1,ticker2)
+    df = signal(combined_df,ticker1,ticker2,rollingWindow)
     df = df_column_uniquify(df)
-    df = pnl(df, leverage,ticker1,ticker2)
+    df = pnl(df, leverage,ticker1,ticker2,rollingWindow)
 
     # func to label opened/live/closed trades
     df["Live Trades"] = ""
@@ -239,11 +239,11 @@ def go(ticker1, ticker2, startDate, endDate, leverage):
     print("{} pnl = {}".format(ticker2, df[ticker2+"_PnL"].sum()))
     print("total pnl = {}".format(df[ticker1+"_PnL"].sum()+df[ticker2+"_PnL"].sum()))
 
-    df.to_csv(ticker1+" VS "+ticker2+".csv", index=False)
+    df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
 
     print("abs sprd = {}".format(df["abs_sprd"].tail(1).values))
-    print("{} 30-day rolling avg = {}".format(ticker1,df[ticker1+"_rolling avg"].tail(1).values))
-    print("{} 30-day rolling avg = {}".format(ticker2,df[ticker2+"_rolling avg"].tail(1).values))
+    print("{} {}-day rolling avg = {}".format(ticker1,rollingWindow,df[ticker1+"_rolling avg"].tail(1).values))
+    print("{} {}-day rolling avg = {}".format(ticker2,rollingWindow,df[ticker2+"_rolling avg"].tail(1).values))
     
     return None
 
@@ -256,6 +256,6 @@ ticker2 = "AMD" # copx (copper ETF)
 startDate = "2024-01-01"
 endDate = "2024-08-02"
 leverage = 5
-rollingWindowForStd = 5 # to add in as variable
+rollingWindow = 15 # to add in as variable
 
-go(ticker1, ticker2, startDate, endDate, leverage)
+backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
