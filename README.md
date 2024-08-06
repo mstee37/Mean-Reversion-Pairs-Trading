@@ -1,5 +1,5 @@
 # Mean-Reversion-Pairs-Trading
 
-Copper ETF vs Copper Futures
+Backtesting function for any chosen 2 tickers
 
  
