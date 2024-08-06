@@ -232,12 +232,15 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     df[ticker2+"_PnL"] = 0
     df[ticker1+"_PnL"] = np.where((df["Live Trades"] == "Opened") | (df["Live Trades"] == "Closed"), df[ticker1Cash], 0)
     df[ticker2+"_PnL"] = np.where((df["Live Trades"] == "Opened") | (df["Live Trades"] == "Closed"), df[ticker2Cash], 0)
-            
+    
+    df["Total PnL"] = 0
+    df["Total PnL"] = np.where((df["Live Trades"] == "Closed"),df[ticker1+"_MTM"] + df[ticker2+"_MTM"],0)
+    
     print()
     
-    print("{} pnl = {}".format(ticker1, df[ticker1+"_PnL"].sum()))
-    print("{} pnl = {}".format(ticker2, df[ticker2+"_PnL"].sum()))
-    print("total pnl = {}".format(df[ticker1+"_PnL"].sum()+df[ticker2+"_PnL"].sum()))
+    print("{} pnl = {:.2f}".format(ticker1, df[ticker1+"_PnL"].sum()))
+    print("{} pnl = {:.2f}".format(ticker2, df[ticker2+"_PnL"].sum()))
+    print("total pnl = {:.2f}".format(df[ticker1+"_PnL"].sum()+df[ticker2+"_PnL"].sum()))
 
     df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
 
@@ -245,17 +248,25 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     print("{} {}-day rolling avg = {}".format(ticker1,rollingWindow,df[ticker1+"_rolling avg"].tail(1).values))
     print("{} {}-day rolling avg = {}".format(ticker2,rollingWindow,df[ticker2+"_rolling avg"].tail(1).values))
     
+    win = ((df[ticker1+"_MTM"] + df[ticker2+"_MTM"] > 0) & (df["Live Trades"] == "Closed")).sum()
+    totalTrades = (df["Live Trades"] == "Closed").sum()
+    print("total trades = {}".format(totalTrades))
+    print("winning trades = {}".format(win))
+    print("win % = {:.2f}".format(win/totalTrades))
+    print("Avg PnL = {:.2f}".format(df["Total PnL"].mean()))
+    print("Std PnL = {:.2f}".format(df["Total PnL"].std()))
+    
     return None
 
 # parameters input 
 # ticker 1 -> lower spot price
 # ticker 2 -> higher spot price
 
-ticker1 = "NVDA" # HG=F (copper futures)
-ticker2 = "AMD" # copx (copper ETF)
+ticker1 = "2330.TW" # HG=F (copper futures)
+ticker2 = "2454.TW" # copx (copper ETF)
 startDate = "2024-01-01"
-endDate = "2024-08-02"
+endDate = "2024-08-05"
 leverage = 5
-rollingWindow = 15 # to add in as variable
+rollingWindow = 5 # to add in as variable
 
 backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
