@@ -4,6 +4,7 @@ import numpy as np
 import statsmodels.api as sm
 from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
+from scipy.stats import norm
     
 def signal(df,ticker1,ticker2,rollingWindow):
     
@@ -12,7 +13,7 @@ def signal(df,ticker1,ticker2,rollingWindow):
     df["isSprdPos"] = np.where(df["spread"] >= 0, 1, 0)
     df["signal"] = 0 
     
-    # based on rolling window; to be accounted in para
+    # based on rolling window; to be accounted in param
     i = rollingWindow
     
     while i < len(df.index):
@@ -146,7 +147,7 @@ def pnl(df, leverage, ticker1, ticker2, rollingWindow):
     return df
 
 def stationaryTest(val):
-    print()
+
     result = adfuller(val)
     # print(result)
     
@@ -161,10 +162,10 @@ def stationaryTest(val):
         print("The series is stationary.")
     else:
         print("The series is non-stationary.")
-        
-def cointegrationTest(val1, val2):
     
     print()
+        
+def cointegrationTest(val1, val2):
     
     coint_result = coint(val1, val2)
     coint_statistic = coint_result[0]
@@ -182,6 +183,44 @@ def cointegrationTest(val1, val2):
         print("The series are cointegrated (stationary together).")
     else:
         print("The series are not cointegrated (not stationary together).")
+        
+    print()
+
+def plot_pnl_distribution(df):
+    """
+    Plots the histogram and normal PDF of the specified column in the dataframe
+    and labels the mean and standard deviation lines.
+
+    Parameters:
+    df (pandas.DataFrame): The dataframe containing the data ie df["Total PnL"]
+    """
+    # Calculate mean and standard deviation
+    mean = df.mean()
+    std_dev = df.std()
+
+    # Calculate histogram bins and values
+    hist, bins = np.histogram(df, bins='auto', density=True)
+
+    # Generate x-values for the normal PDF
+    x = np.linspace(df.min(), df.max(), 100)
+
+    plt.figure(figsize=(12,8))
+    
+    # Plot the histogram
+    plt.hist(df, bins=bins, density=True, alpha=0.6, label='Histogram')
+
+    # Plot the normal PDF
+    plt.plot(x, norm.pdf(x, mean, std_dev), 'r-', lw=2, label='Normal PDF')
+
+    # Plot vertical lines for mean and standard deviation
+    plt.axvline(x=mean, color='b', linestyle='dashed', label='Mean = '+str(round(mean,2)))
+    plt.axvline(x=mean + std_dev, color='b', linestyle='dashed', label='Mean + Std = '+str(round(mean+std_dev,2)))
+    plt.axvline(x=mean - std_dev, color='b', linestyle='dashed', label='Mean - Std = '+str(round(mean-std_dev,2)))
+
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
 
 def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow):
     
@@ -196,16 +235,20 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     stationaryTest(stock1[ticker1+"_dailyReturns"].dropna())
     print(f"Test for stationary {ticker2}")
     stationaryTest(stock2[ticker2+"_dailyReturns"].dropna())
-    print(f"cointegration Test for stationary {ticker1} vs {ticker2}")
-    cointegrationTest(stock1[ticker1+"_dailyReturns"].dropna(), stock2[ticker2+"_dailyReturns"].dropna())
 
     combined_df = pd.concat([stock1, stock2], axis=1)
+    combined_df = combined_df.dropna()
+    
+    #cointegration test
+    print(f"Cointegration Test for stationary {ticker1} vs {ticker2}")
+    cointegrationTest(combined_df[ticker1+"_dailyReturns"].dropna(), combined_df[ticker2+"_dailyReturns"].dropna())
+    
     combined_df["spread"] = combined_df[ticker1+"_dailyReturns"] - combined_df[ticker2+"_dailyReturns"]
     combined_df["abs_sprd"] = abs(combined_df["spread"])
     combined_df[ticker1+"_rolling avg"] = combined_df[ticker1+"_dailyReturns"].rolling(window=rollingWindow).std()
     combined_df[ticker2+"_rolling avg"] = combined_df[ticker2+"_dailyReturns"].rolling(window=rollingWindow).std()
     
-    plt.figure(figsize=(12,6))
+    plt.figure(figsize=(12,8))
     plt.plot(combined_df[ticker1+"_dailyReturns"], label=ticker1+" dailyReturns")
     plt.plot(combined_df[ticker2+"_dailyReturns"], label=ticker2+" dailyReturns")
     plt.plot(combined_df[ticker1+"_rolling avg"], label=ticker1+" rollingWindow = "+str(rollingWindow))
@@ -225,6 +268,7 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     df["Live Trades"] = np.where((df["signal"] == 1) & (df["axe"] == 0), "Live", df["Live Trades"])
     df["Live Trades"] = np.where(df["axe"] == -1, "Closed", df["Live Trades"])
     
+    # to label ticker 1 and 2 PnL
     ticker1Cash = ticker1+"_Cashflow"
     ticker2Cash = ticker2+"_Cashflow"
     
@@ -236,37 +280,44 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     df["Total PnL"] = 0
     df["Total PnL"] = np.where((df["Live Trades"] == "Closed"),df[ticker1+"_MTM"] + df[ticker2+"_MTM"],0)
     
-    print()
-    
     print("{} pnl = {:.2f}".format(ticker1, df[ticker1+"_PnL"].sum()))
     print("{} pnl = {:.2f}".format(ticker2, df[ticker2+"_PnL"].sum()))
-    print("total pnl = {:.2f}".format(df[ticker1+"_PnL"].sum()+df[ticker2+"_PnL"].sum()))
+    print("total pnl = {:.2f}".format(df["Total PnL"].sum()))
 
-    df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
-
-    print("abs sprd = {}".format(df["abs_sprd"].tail(1).values))
-    print("{} {}-day rolling avg = {}".format(ticker1,rollingWindow,df[ticker1+"_rolling avg"].tail(1).values))
-    print("{} {}-day rolling avg = {}".format(ticker2,rollingWindow,df[ticker2+"_rolling avg"].tail(1).values))
+    print("abs sprd = {:.5f}".format(df["abs_sprd"].tail(1).values[0]))
+    print("{} {}-day rolling avg = {:.5f}".format(ticker1,rollingWindow,df[ticker1+"_rolling avg"].tail(1).values[0]))
+    print("{} {}-day rolling avg = {:.5f}".format(ticker2,rollingWindow,df[ticker2+"_rolling avg"].tail(1).values[0]))
     
     win = ((df[ticker1+"_MTM"] + df[ticker2+"_MTM"] > 0) & (df["Live Trades"] == "Closed")).sum()
     totalTrades = (df["Live Trades"] == "Closed").sum()
     print("total trades = {}".format(totalTrades))
     print("winning trades = {}".format(win))
     print("win % = {:.2f}".format(win/totalTrades))
-    print("Avg PnL = {:.2f}".format(df["Total PnL"].mean()))
-    print("Std PnL = {:.2f}".format(df["Total PnL"].std()))
+    print("Avg PnL per Trade = {:.2f}".format(df["Total PnL"].mean()))
+    print("Std PnL per Trade = {:.2f}".format(df["Total PnL"].std()))
+    
+    AvgPnL = df["Total PnL"].mean()
+    df["Gross Capital"] = 0
+    df["Gross Capital"] = np.where(df["Live Trades"] == "Opened",abs(df[ticker1+"_PnL"]) + abs(df[ticker2+"_PnL"]),0)
+    GrossCapital = df["Gross Capital"].mean() #to improve
+    alpha = AvgPnL/GrossCapital
+    print("Avg Capital per Trade = {:.2f}".format(GrossCapital))
+    print("Max Capital to execute one trade = {:.2f}".format(max(df["Gross Capital"])))
+    # print("Alpha = {:.4f}".format(alpha)) 
+    # beta = df["Total PnL"].std()/GrossCapital
+    # print("Beta = {:.4f}".format(beta))
+    
+    plot_pnl_distribution(df["Total PnL"])
+    
+    df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
     
     return None
 
-# parameters input 
-# ticker 1 -> lower spot price
-# ticker 2 -> higher spot price
-
-ticker1 = "2330.TW" # HG=F (copper futures)
-ticker2 = "2454.TW" # copx (copper ETF)
+ticker1 = "2330.TW" # HG=F (copper futures), 2330.TW
+ticker2 = "2454.TW" # copx (copper ETF), 2454.TW
 startDate = "2024-01-01"
-endDate = "2024-08-05"
+endDate = "2024-08-14"
 leverage = 5
-rollingWindow = 5 # to add in as variable
+rollingWindow = 5
 
 backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
