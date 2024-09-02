@@ -42,10 +42,24 @@ def signal(df,ticker1,ticker2,rollingWindow):
     
     return df
 
+def df_column_uniquify(df):
+    df_columns = df.columns
+    print(df_columns)
+    new_columns = []
+    for item in df_columns:
+        counter = 0
+        newitem = item
+        while newitem in new_columns:
+            counter += 1
+            newitem = "{}_{}".format(item, counter)
+        new_columns.append(newitem)
+    df.columns = new_columns
+    return df
+
 def pnl(df, leverage, ticker1, ticker2, rollingWindow):
     
     df["leverage"] = leverage
-    df["ratio"] = abs(df[ticker2+"_Close"] * df[ticker2+"_dailyReturns"]) / abs(df[ticker1+"_Close"] * df[ticker1+"_dailyReturns"])
+    df["ratio"] = abs(df["Close_1"] * df[ticker2+"_dailyReturns"]) / abs(df["Close"] * df[ticker1+"_dailyReturns"])
     
     # naming
     
@@ -94,16 +108,16 @@ def pnl(df, leverage, ticker1, ticker2, rollingWindow):
                     df.loc[i, ticker1Ntl] = np.floor(df.loc[i, "ratio"] * -1 * df.loc[i, "leverage"])
                     df.loc[i, ticker2Ntl] = df.loc[i, "leverage"]
                     
-            df.loc[i, ticker1Cash] = df.loc[i, ticker1Ntl] * df.loc[i, ticker1+"_Close"] * -1
-            df.loc[i, ticker2Cash] = df.loc[i, ticker2Ntl] * df.loc[i, ticker2+"_Close"] * -1
+            df.loc[i, ticker1Cash] = df.loc[i, ticker1Ntl] * df.loc[i, "Close"] * -1
+            df.loc[i, ticker2Cash] = df.loc[i, ticker2Ntl] * df.loc[i, "Close_1"] * -1
                     
             currStock1Ntl = df.loc[i, ticker1Ntl]
             currStock2Ntl = df.loc[i, ticker2Ntl]
             currStock1Cash, currStock2Cash = df.loc[i, ticker1Cash], df.loc[i, ticker2Cash]
 
         elif df.loc[i, "axe"] == -1: # Closed
-            df.loc[i, ticker1Cash] = currStock1Ntl * df.loc[i, ticker1+"_Close"]
-            df.loc[i, ticker2Cash] =  currStock2Ntl * df.loc[i, ticker2+"_Close"]
+            df.loc[i, ticker1Cash] = currStock1Ntl * df.loc[i, "Close"]
+            df.loc[i, ticker2Cash] =  currStock2Ntl * df.loc[i, "Close_1"]
             
             df.loc[i, ticker1Ntl] = -currStock1Ntl
             df.loc[i, ticker2Ntl] = -currStock2Ntl
@@ -120,8 +134,8 @@ def pnl(df, leverage, ticker1, ticker2, rollingWindow):
             
             # calculate MTM exposure for opened positions
             
-            df.loc[i, ticker1Cash] = currStock1Ntl * df.loc[i, ticker1+"_Close"]
-            df.loc[i, ticker2Cash] = currStock2Ntl * df.loc[i, ticker2+"_Close"]
+            df.loc[i, ticker1Cash] = currStock1Ntl * df.loc[i, "Close"]
+            df.loc[i, ticker2Cash] = currStock2Ntl * df.loc[i, "Close_1"]
             
             df.loc[i, ticker1Ntl] = -currStock1Ntl
             df.loc[i, ticker2Ntl] = -currStock2Ntl
@@ -232,106 +246,6 @@ def arrange_cols(df, ticker):
     
     return df
     
-def calculation1(combined_df, ticker1, ticker2):
-    
-    combined_df["spread"] = combined_df[ticker1+"_dailyReturns"] - combined_df[ticker2+"_dailyReturns"]
-    combined_df["abs_sprd"] = abs(combined_df["spread"])
-    combined_df[ticker1+"_rolling avg"] = combined_df[ticker1+"_dailyReturns"].rolling(window=rollingWindow).std()
-    combined_df[ticker2+"_rolling avg"] = combined_df[ticker2+"_dailyReturns"].rolling(window=rollingWindow).std()
-    
-    return combined_df
-
-def riskAdjusted_Pnl(df):
-
-    i = 0
-    df["Adjusted PnL"] = 0.0
-    
-    while i < len(df.index):
-        
-        if df.loc[i, "Live Trades"] == "Opened":
-
-            isStoppedFlag = False
-            innerIdx = i
-            
-            while innerIdx < len(df.index) and df.loc[innerIdx, "Live Trades"] != "Closed":
-
-                if df.loc[innerIdx, "isStoppedOut"] == 1 and not isStoppedFlag:
-                    df.loc[innerIdx, "Adjusted PnL"] = df.loc[innerIdx, "totalMTM"]
-                    isStoppedFlag = True
-                
-                innerIdx += 1
-                 
-            if not isStoppedFlag and innerIdx < len(df.index) and df.loc[innerIdx, "Live Trades"] == "Closed":
-                df.loc[innerIdx, "Adjusted PnL"] = df.loc[innerIdx, "totalMTM"]
-            
-            i = innerIdx
-        else:
-            i += 1
-        
-    return df
-
-def riskStrategy(df, ticker1, ticker2):
-    
-    df["riskThreshold"] = np.maximum(df[ticker1+"_rolling avg"], df[ticker2+"_rolling avg"])
-    df["grossCashflow"] = np.absolute(df[ticker1+"_Cashflow"]) + np.absolute(df[ticker2+"_Cashflow"])
-    df["totalMTM"] = df[ticker1+"_MTM"] + df[ticker2+"_MTM"]
-    df["totalMTM in %"] = np.where(df["grossCashflow"]>0, df["totalMTM"]/df["grossCashflow"],0)
-    df["isStoppedOut"] = np.where((df["totalMTM in %"] < 0) & (np.absolute(df["totalMTM in %"])>df["riskThreshold"]),1,0)
-    
-    df = riskAdjusted_Pnl(df)
-    return df
-
-def pnl2(df, ticker1, ticker2):
-    
-    # func to label opened/live/closed trades
-    df["Live Trades"] = ""
-    df["Live Trades"] = np.where(df["axe"] == 1, "Opened", df["Live Trades"])
-    df["Live Trades"] = np.where((df["signal"] == 1) & (df["axe"] == 0), "Live", df["Live Trades"])
-    df["Live Trades"] = np.where(df["axe"] == -1, "Closed", df["Live Trades"])
-    
-    # # to label ticker 1 and 2 PnL
-    ticker1Cash = ticker1+"_Cashflow"
-    ticker2Cash = ticker2+"_Cashflow"
-    
-    df[ticker1+"_PnL"] = 0
-    df[ticker2+"_PnL"] = 0
-    df[ticker1+"_PnL"] = np.where((df["Live Trades"] == "Opened") | (df["Live Trades"] == "Closed"), df[ticker1Cash], 0)
-    df[ticker2+"_PnL"] = np.where((df["Live Trades"] == "Opened") | (df["Live Trades"] == "Closed"), df[ticker2Cash], 0)
-    
-    df["Total PnL"] = 0
-    df["Total PnL"] = np.where((df["Live Trades"] == "Closed"),df[ticker1+"_MTM"] + df[ticker2+"_MTM"],0)    
-
-    return df
-
-def printStats(df, ticker1, ticker2, rollingWindow):
-    
-    # print("{} pnl = {:.2f}".format(ticker1, df[ticker1+"_PnL"].sum()))
-    # print("{} pnl = {:.2f}".format(ticker2, df[ticker2+"_PnL"].sum()))
-    print("Total PnL = {:.2f}".format(df["Total PnL"].sum()))
-    print("Risk Adjusted PnL = {:.2f}".format(df["Adjusted PnL"].sum()))
-
-    print("abs sprd = {:.5f}".format(df["abs_sprd"].tail(1).values[0]))
-    print("{} {}-day rolling avg = {:.5f}".format(ticker1,rollingWindow,df[ticker1+"_rolling avg"].tail(1).values[0]))
-    print("{} {}-day rolling avg = {:.5f}".format(ticker2,rollingWindow,df[ticker2+"_rolling avg"].tail(1).values[0]))
-    
-    win = ((df[ticker1+"_MTM"] + df[ticker2+"_MTM"] > 0) & (df["Live Trades"] == "Closed")).sum()
-    totalTrades = (df["Live Trades"] == "Closed").sum()
-    print("total trades = {}".format(totalTrades))
-    print("winning trades = {}".format(win))
-    print("win % = {:.2f}".format(win/totalTrades))
-    print("Avg PnL per Trade = {:.2f}".format(df["Total PnL"].mean()))
-    print("Std PnL per Trade = {:.2f}".format(df["Total PnL"].std()))
-    
-    print("Risk Adjusted Avg PnL per Trade = {:.2f}".format(df["Adjusted PnL"].mean()))
-    print("Risk Adjusted Std PnL per Trade = {:.2f}".format(df["Adjusted PnL"].std()))
-    
-    df["Gross Capital"] = 0
-    df["Gross Capital"] = np.where(df["Live Trades"] == "Opened",abs(df[ticker1+"_PnL"]) + abs(df[ticker2+"_PnL"]),0)
-    GrossCapital = df["Gross Capital"].mean()
-    print("Avg Capital per Trade = {:.2f}".format(GrossCapital))
-    print("Max Capital to execute one trade = {:.2f}".format(max(df["Gross Capital"])))    
-
-    return df
 
 def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow):
     
@@ -356,27 +270,73 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     #cointegration test
     print(f"Cointegration Test for stationary {ticker1} vs {ticker2}")
     cointegrationTest(combined_df[ticker1+"_dailyReturns"].dropna(), combined_df[ticker2+"_dailyReturns"].dropna())
- 
-    combined_df = calculation1(combined_df, ticker1, ticker2)
+    
+    combined_df["spread"] = combined_df[ticker1+"_dailyReturns"] - combined_df[ticker2+"_dailyReturns"]
+    combined_df["abs_sprd"] = abs(combined_df["spread"])
+    combined_df[ticker1+"_rolling avg"] = combined_df[ticker1+"_dailyReturns"].rolling(window=rollingWindow).std()
+    combined_df[ticker2+"_rolling avg"] = combined_df[ticker2+"_dailyReturns"].rolling(window=rollingWindow).std()
     
     # plot_timeSeries_sprds(combined_df,ticker1,ticker2,rollingWindow)
     
     df = signal(combined_df,ticker1,ticker2,rollingWindow)
+    # df = df_column_uniquify(df)
     df = pnl(df, leverage,ticker1,ticker2,rollingWindow)
-    df = pnl2(df, ticker1, ticker2)
-    df = riskStrategy(df, ticker1, ticker2)
-    printStats(df, ticker1, ticker2, rollingWindow)
-    plot_pnl_distribution(df["Total PnL"])
-    plot_pnl_distribution(df["Adjusted PnL"])
+
+    # func to label opened/live/closed trades
+    df["Live Trades"] = ""
+    df["Live Trades"] = np.where(df["axe"] == 1, "Opened", df["Live Trades"])
+    df["Live Trades"] = np.where((df["signal"] == 1) & (df["axe"] == 0), "Live", df["Live Trades"])
+    df["Live Trades"] = np.where(df["axe"] == -1, "Closed", df["Live Trades"])
+    
+    # to label ticker 1 and 2 PnL
+    ticker1Cash = ticker1+"_Cashflow"
+    ticker2Cash = ticker2+"_Cashflow"
+    
+    df[ticker1+"_PnL"] = 0
+    df[ticker2+"_PnL"] = 0
+    df[ticker1+"_PnL"] = np.where((df["Live Trades"] == "Opened") | (df["Live Trades"] == "Closed"), df[ticker1Cash], 0)
+    df[ticker2+"_PnL"] = np.where((df["Live Trades"] == "Opened") | (df["Live Trades"] == "Closed"), df[ticker2Cash], 0)
+    
+    df["Total PnL"] = 0
+    df["Total PnL"] = np.where((df["Live Trades"] == "Closed"),df[ticker1+"_MTM"] + df[ticker2+"_MTM"],0)
+    
+    print("{} pnl = {:.2f}".format(ticker1, df[ticker1+"_PnL"].sum()))
+    print("{} pnl = {:.2f}".format(ticker2, df[ticker2+"_PnL"].sum()))
+    print("total pnl = {:.2f}".format(df["Total PnL"].sum()))
+
+    print("abs sprd = {:.5f}".format(df["abs_sprd"].tail(1).values[0]))
+    print("{} {}-day rolling avg = {:.5f}".format(ticker1,rollingWindow,df[ticker1+"_rolling avg"].tail(1).values[0]))
+    print("{} {}-day rolling avg = {:.5f}".format(ticker2,rollingWindow,df[ticker2+"_rolling avg"].tail(1).values[0]))
+    
+    win = ((df[ticker1+"_MTM"] + df[ticker2+"_MTM"] > 0) & (df["Live Trades"] == "Closed")).sum()
+    totalTrades = (df["Live Trades"] == "Closed").sum()
+    print("total trades = {}".format(totalTrades))
+    print("winning trades = {}".format(win))
+    print("win % = {:.2f}".format(win/totalTrades))
+    print("Avg PnL per Trade = {:.2f}".format(df["Total PnL"].mean()))
+    print("Std PnL per Trade = {:.2f}".format(df["Total PnL"].std()))
+    
+    AvgPnL = df["Total PnL"].mean()
+    df["Gross Capital"] = 0
+    df["Gross Capital"] = np.where(df["Live Trades"] == "Opened",abs(df[ticker1+"_PnL"]) + abs(df[ticker2+"_PnL"]),0)
+    GrossCapital = df["Gross Capital"].mean()
+    alpha = AvgPnL/GrossCapital
+    print("Avg Capital per Trade = {:.2f}".format(GrossCapital))
+    print("Max Capital to execute one trade = {:.2f}".format(max(df["Gross Capital"])))
+    # print("Alpha = {:.4f}".format(alpha)) 
+    # beta = df["Total PnL"].std()/GrossCapital
+    # print("Beta = {:.4f}".format(beta))
+    
+    # plot_pnl_distribution(df["Total PnL"])
     
     df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
     
     return None
 
-ticker1 = "NVDA" # HG=F (copper futures), 2330.TW, NVDA
-ticker2 = "AMD" # copx (copper ETF), 2454.TW, AMD
+ticker1 = "GC=F" # HG=F (copper futures), 2330.TW
+ticker2 = "GLD" # copx (copper ETF), 2454.TW
 startDate = "2024-01-01"
-endDate = "2024-09-02"
+endDate = "2024-08-30"
 leverage = 5
 rollingWindow = 5
 
