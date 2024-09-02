@@ -22,7 +22,11 @@ def signal(df,ticker1,ticker2,rollingWindow):
         stock1_rolling_avg = df.loc[i, ticker1+"_rolling avg"]
         stock2_rolling_avg = df.loc[i, ticker2+"_rolling avg"]
         
-        if absSprd > stock1_rolling_avg and absSprd > stock2_rolling_avg:
+        stock1_dailyReturns = df.loc[i, ticker1+"_dailyReturns"]
+        stock2_dailyReturns = df.loc[i, ticker2+"_dailyReturns"]
+        isNotZero = stock1_dailyReturns and stock2_dailyReturns
+        
+        if absSprd > stock1_rolling_avg and absSprd > stock2_rolling_avg and isNotZero:
             df.loc[i, "signal"] = 1
             currSprdDir = df.loc[i, "isSprdPos"]
             # print(i, currSprdDir)
@@ -185,6 +189,7 @@ def plot_pnl_distribution(df):
     # Calculate mean and standard deviation
     mean = df.mean()
     std_dev = df.std()
+    n = (df != 0).sum()
 
     # Calculate histogram bins and values
     hist, bins = np.histogram(df, bins='auto', density=True)
@@ -209,6 +214,7 @@ def plot_pnl_distribution(df):
     prob = 1 - norm.cdf(0, mean, std_dev)
     print(f'Probability P(x > 0): {prob:.4f}')
     
+    plt.title("Trades executed = {}".format(n))
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -373,9 +379,9 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     
     return None
 
-ticker1 = "NVDA" # HG=F (copper futures), 2330.TW, NVDA
-ticker2 = "AMD" # copx (copper ETF), 2454.TW, AMD
-startDate = "2024-01-01"
+ticker1 = "2330.TW" # HG=F (copper futures), 2330.TW, NVDA, GLD
+ticker2 = "2454.TW" # copx (copper ETF), 2454.TW, AMD, GC=F
+startDate = "2019-01-01"
 endDate = "2024-09-02"
 leverage = 5
 rollingWindow = 5
