@@ -314,7 +314,7 @@ def printStats(df, ticker1, ticker2, rollingWindow):
     # print("{} pnl = {:.2f}".format(ticker1, df[ticker1+"_PnL"].sum()))
     # print("{} pnl = {:.2f}".format(ticker2, df[ticker2+"_PnL"].sum()))
     print("Total PnL = {:.2f}".format(df["Total PnL"].sum()))
-    print("Risk Adjusted PnL = {:.2f}".format(df["Adjusted PnL"].sum()))
+    print("Risk Adjusted Total PnL = {:.2f}".format(df["Adjusted PnL"].sum()))
 
     print("abs sprd = {:.5f}".format(df["abs_sprd"].tail(1).values[0]))
     print("{} {}-day rolling avg = {:.5f}".format(ticker1,rollingWindow,df[ticker1+"_rolling avg"].tail(1).values[0]))
@@ -365,7 +365,7 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
  
     combined_df = calculation1(combined_df, ticker1, ticker2)
     
-    # plot_timeSeries_sprds(combined_df,ticker1,ticker2,rollingWindow)
+    plot_timeSeries_sprds(combined_df,ticker1,ticker2,rollingWindow)
     
     df = signal(combined_df,ticker1,ticker2,rollingWindow)
     df = pnl(df, leverage,ticker1,ticker2,rollingWindow)
@@ -379,11 +379,13 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     
     return None
 
-ticker1 = "2330.TW" # HG=F (copper futures), 2330.TW, NVDA, GLD
-ticker2 = "2454.TW" # copx (copper ETF), 2454.TW, AMD, GC=F
-startDate = "2019-01-01"
-endDate = "2024-09-02"
-leverage = 5
-rollingWindow = 5
 
-backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
+if __name__ == "__main__":
+    ticker1 = "BZ=F" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
+    ticker2 = "NG=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
+    startDate = "2024-01-01"
+    endDate = "2024-10-03"
+    leverage = 5
+    rollingWindow = 5
+
+    backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
