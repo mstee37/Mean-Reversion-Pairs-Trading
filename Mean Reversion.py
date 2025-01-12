@@ -5,6 +5,7 @@ import statsmodels.api as sm
 from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
 from scipy.stats import norm
+import datetime
     
 def signal(df,ticker1,ticker2,rollingWindow):
     
@@ -24,7 +25,9 @@ def signal(df,ticker1,ticker2,rollingWindow):
         
         stock1_dailyReturns = df.loc[i, ticker1+"_dailyReturns"]
         stock2_dailyReturns = df.loc[i, ticker2+"_dailyReturns"]
+
         isNotZero = stock1_dailyReturns and stock2_dailyReturns
+        # isNotZero = 1
         
         if absSprd > stock1_rolling_avg and absSprd > stock2_rolling_avg and isNotZero:
             df.loc[i, "signal"] = 1
@@ -47,9 +50,10 @@ def signal(df,ticker1,ticker2,rollingWindow):
     return df
 
 def pnl(df, leverage, ticker1, ticker2, rollingWindow):
-    
+
     df["leverage"] = leverage
-    df["ratio"] = abs(df[ticker2+"_Close"] * df[ticker2+"_dailyReturns"]) / abs(df[ticker1+"_Close"] * df[ticker1+"_dailyReturns"])
+
+    df["ratio"] = abs(df[ticker2+"_Close"] * df[ticker2+"_dailyReturns"]) / abs(df[ticker1+"_Close"]  * df[ticker1+"_dailyReturns"])
     
     # naming
     
@@ -197,7 +201,7 @@ def plot_pnl_distribution(df):
     # Generate x-values for the normal PDF
     x = np.linspace(df.min(), df.max(), 100)
 
-    plt.figure(figsize=(12,8))
+    # plt.figure(figsize=(12,8))
     
     # Plot the histogram
     plt.hist(df, bins=bins, density=True, alpha=0.6, label='Histogram')
@@ -346,11 +350,20 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     
     stock1 = arrange_cols(stock1, ticker1)
     stock2 = arrange_cols(stock2, ticker2)
+    # print(stock1.columns)
+    df = pd.DataFrame(index=pd.date_range(start=startDate, end=endDate))
+    # print(len(df))
+    stock1 = pd.concat([stock1, df], axis=1, join="outer").ffill().bfill()
+    stock2 = pd.concat([stock2, df], axis=1, join="outer").ffill().bfill()
+    # print(len(stock1))
+    # print(stock1.tail())
+    # print(stock1.isna().sum())
     
-    stock1[ticker1+"_dailyReturns"] = stock1[ticker1+"_Close"].pct_change().dropna()
-    stock2[ticker2+"_dailyReturns"] = stock2[ticker2+"_Close"].pct_change().dropna()
+    stock1[ticker1+"_dailyReturns"] = stock1[ticker1+"_Close"].pct_change().fillna(0)
+    stock2[ticker2+"_dailyReturns"] = stock2[ticker2+"_Close"].pct_change().fillna(0)
+    # print(stock1.columns)
     
-    #stationary test
+    # #stationary test
     print(f"Test for stationary {ticker1}")
     stationaryTest(stock1[ticker1+"_dailyReturns"].dropna())
     print(f"Test for stationary {ticker2}")
@@ -358,13 +371,16 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
 
     combined_df = pd.concat([stock1, stock2], axis=1)
     combined_df = combined_df.dropna()
+    combined_df.columns = combined_df.columns.get_level_values(0)
+    print(combined_df.head())
+    # print(combined_df.isna().sum())
     
     #cointegration test
     print(f"Cointegration Test for stationary {ticker1} vs {ticker2}")
     cointegrationTest(combined_df[ticker1+"_dailyReturns"].dropna(), combined_df[ticker2+"_dailyReturns"].dropna())
  
     combined_df = calculation1(combined_df, ticker1, ticker2)
-    
+
     plot_timeSeries_sprds(combined_df,ticker1,ticker2,rollingWindow)
     
     df = signal(combined_df,ticker1,ticker2,rollingWindow)
@@ -381,11 +397,11 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
 
 
 if __name__ == "__main__":
-    ticker1 = "BZ=F" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
-    ticker2 = "NG=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
-    startDate = "2024-01-01"
-    endDate = "2024-10-03"
+    ticker1 = "GLD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
+    ticker2 = "GC=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
+    startDate = "2020-01-01"
+    endDate = datetime.date.today()
     leverage = 5
-    rollingWindow = 5
+    rollingWindow = 180
 
     backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
