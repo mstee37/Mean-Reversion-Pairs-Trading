@@ -330,10 +330,20 @@ def printStats(df, ticker1, ticker2, rollingWindow):
     print("winning trades = {}".format(win))
     print("win % = {:.2f}".format(win/totalTrades))
     print("Avg PnL per Trade = {:.2f}".format(df["Total PnL"].mean()))
+    avg_win_pnl = df[df["Total PnL"]>0]["Total PnL"].mean()
+    avg_loss_pnl = df[df["Total PnL"]<0]["Total PnL"].mean()
+    print("Avg Win PnL = {:.2f}".format(avg_win_pnl))
+    print("Avg Loss Pnl = {:.2f}".format(avg_loss_pnl))
     print("Std PnL per Trade = {:.2f}".format(df["Total PnL"].std()))
     
     print("Risk Adjusted Avg PnL per Trade = {:.2f}".format(df["Adjusted PnL"].mean()))
     print("Risk Adjusted Std PnL per Trade = {:.2f}".format(df["Adjusted PnL"].std()))
+    
+    # Calculate Risk Adjusted Win and Loss PnL
+    risk_adjusted_avg_win_pnl = df[df["Adjusted PnL"] > 0]["Adjusted PnL"].mean()
+    risk_adjusted_avg_loss_pnl = df[df["Adjusted PnL"] < 0]["Adjusted PnL"].mean()
+    print("Risk Adjusted Avg Win PnL = {:.2f}".format(risk_adjusted_avg_win_pnl))
+    print("Risk Adjusted Avg Loss Pnl = {:.2f}".format(risk_adjusted_avg_loss_pnl))
     
     df["Gross Capital"] = 0
     df["Gross Capital"] = np.where(df["Live Trades"] == "Opened",abs(df[ticker1+"_PnL"]) + abs(df[ticker2+"_PnL"]),0)
@@ -381,7 +391,7 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
  
     combined_df = calculation1(combined_df, ticker1, ticker2)
 
-    plot_timeSeries_sprds(combined_df,ticker1,ticker2,rollingWindow)
+    # plot_timeSeries_sprds(combined_df,ticker1,ticker2,rollingWindow)
     
     df = signal(combined_df,ticker1,ticker2,rollingWindow)
     df = pnl(df, leverage,ticker1,ticker2,rollingWindow)
@@ -397,11 +407,11 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
 
 
 if __name__ == "__main__":
-    ticker1 = "GLD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
-    ticker2 = "GC=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
-    startDate = "2020-01-01"
+    ticker1 = "HG=F" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
+    ticker2 = "COPX" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
+    startDate = "2010-01-01"
     endDate = datetime.date.today()
-    leverage = 5
+    leverage = 10
     rollingWindow = 180
 
     backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
