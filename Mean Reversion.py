@@ -221,7 +221,7 @@ def plot_pnl_distribution(df):
     plt.title("Trades executed = {}".format(n))
     plt.legend()
     plt.grid(True)
-    plt.show()
+    # plt.show()
 
 def plot_timeSeries_sprds(combined_df, ticker1, ticker2, rollingWindow):
     
@@ -407,11 +407,11 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
 
 
 if __name__ == "__main__":
-    ticker1 = "HG=F" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
-    ticker2 = "COPX" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
+    ticker1 = "2330.TW" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
+    ticker2 = "2454.TW" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
     startDate = "2010-01-01"
     endDate = datetime.date.today()
     leverage = 10
-    rollingWindow = 180
+    rollingWindow = 30
 
     backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
