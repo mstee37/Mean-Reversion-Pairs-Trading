@@ -407,11 +407,11 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
 
 
 if __name__ == "__main__":
-    ticker1 = "2330.TW" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
-    ticker2 = "2454.TW" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
+    ticker1 = "GLD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
+    ticker2 = "GC=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
     startDate = "2010-01-01"
     endDate = datetime.date.today()
     leverage = 10
-    rollingWindow = 30
+    rollingWindow = 180
 
     backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
