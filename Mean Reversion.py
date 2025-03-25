@@ -222,7 +222,7 @@ def plot_pnl_distribution(df):
     plt.title("Trades executed = {}".format(n))
     plt.legend()
     plt.grid(True)
-    # plt.show()
+    plt.show()
 
 def plot_timeSeries_sprds(combined_df, ticker1, ticker2, rollingWindow):
     
@@ -318,8 +318,8 @@ def printStats(df, ticker1, ticker2, rollingWindow):
     
     # print("{} pnl = {:.2f}".format(ticker1, df[ticker1+"_PnL"].sum()))
     # print("{} pnl = {:.2f}".format(ticker2, df[ticker2+"_PnL"].sum()))
-    print("Total PnL = {:.2f}".format(df["Total PnL"].sum()))
-    print("Risk Adjusted Total PnL = {:.2f}".format(df["Adjusted PnL"].sum()))
+    # print("Total PnL = {:.2f}".format(df["Total PnL"].sum()))
+    # print("Risk Adjusted Total PnL = {:.2f}".format(df["Adjusted PnL"].sum()))
 
     print("abs sprd = {:.5f}".format(df["abs_sprd"].tail(1).values[0]))
     print("{} {}-day rolling avg = {:.5f}".format(ticker1,rollingWindow,df[ticker1+"_rolling avg"].tail(1).values[0]))
@@ -330,27 +330,27 @@ def printStats(df, ticker1, ticker2, rollingWindow):
     print("total trades = {}".format(totalTrades))
     print("winning trades = {}".format(win))
     print("win % = {:.2f}".format(win/totalTrades))
-    print("Avg PnL per Trade = {:.2f}".format(df["Total PnL"].mean()))
-    avg_win_pnl = df[df["Total PnL"]>0]["Total PnL"].mean()
-    avg_loss_pnl = df[df["Total PnL"]<0]["Total PnL"].mean()
-    print("Avg Win PnL = {:.2f}".format(avg_win_pnl))
-    print("Avg Loss Pnl = {:.2f}".format(avg_loss_pnl))
-    print("Std PnL per Trade = {:.2f}".format(df["Total PnL"].std()))
+    # print("Avg PnL per Trade = {:.2f}".format(df["Total PnL"].mean()))
+    # avg_win_pnl = df[df["Total PnL"]>0]["Total PnL"].mean()
+    # avg_loss_pnl = df[df["Total PnL"]<0]["Total PnL"].mean()
+    # print("Avg Win PnL = {:.2f}".format(avg_win_pnl))
+    # print("Avg Loss Pnl = {:.2f}".format(avg_loss_pnl))
+    # print("Std PnL per Trade = {:.2f}".format(df["Total PnL"].std()))
     
-    print("Risk Adjusted Avg PnL per Trade = {:.2f}".format(df["Adjusted PnL"].mean()))
-    print("Risk Adjusted Std PnL per Trade = {:.2f}".format(df["Adjusted PnL"].std()))
+    # print("Risk Adjusted Avg PnL per Trade = {:.2f}".format(df["Adjusted PnL"].mean()))
+    # print("Risk Adjusted Std PnL per Trade = {:.2f}".format(df["Adjusted PnL"].std()))
     
-    # Calculate Risk Adjusted Win and Loss PnL
-    risk_adjusted_avg_win_pnl = df[df["Adjusted PnL"] > 0]["Adjusted PnL"].mean()
-    risk_adjusted_avg_loss_pnl = df[df["Adjusted PnL"] < 0]["Adjusted PnL"].mean()
-    print("Risk Adjusted Avg Win PnL = {:.2f}".format(risk_adjusted_avg_win_pnl))
-    print("Risk Adjusted Avg Loss Pnl = {:.2f}".format(risk_adjusted_avg_loss_pnl))
+    # # Calculate Risk Adjusted Win and Loss PnL
+    # risk_adjusted_avg_win_pnl = df[df["Adjusted PnL"] > 0]["Adjusted PnL"].mean()
+    # risk_adjusted_avg_loss_pnl = df[df["Adjusted PnL"] < 0]["Adjusted PnL"].mean()
+    # print("Risk Adjusted Avg Win PnL = {:.2f}".format(risk_adjusted_avg_win_pnl))
+    # print("Risk Adjusted Avg Loss Pnl = {:.2f}".format(risk_adjusted_avg_loss_pnl))
     
-    df["Gross Capital"] = 0
-    df["Gross Capital"] = np.where(df["Live Trades"] == "Opened",abs(df[ticker1+"_PnL"]) + abs(df[ticker2+"_PnL"]),0)
-    GrossCapital = df["Gross Capital"].mean()
-    print("Avg Capital per Trade = {:.2f}".format(GrossCapital))
-    print("Max Capital to execute one trade = {:.2f}".format(max(df["Gross Capital"])))    
+    # df["Gross Capital"] = 0
+    # df["Gross Capital"] = np.where(df["Live Trades"] == "Opened",abs(df[ticker1+"_PnL"]) + abs(df[ticker2+"_PnL"]),0)
+    # GrossCapital = df["Gross Capital"].mean()
+    # print("Avg Capital per Trade = {:.2f}".format(GrossCapital))
+    # print("Max Capital to execute one trade = {:.2f}".format(max(df["Gross Capital"])))    
 
     return df
 
@@ -399,8 +399,8 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     df = pnl2(df, ticker1, ticker2)
     df = riskStrategy(df, ticker1, ticker2)
     printStats(df, ticker1, ticker2, rollingWindow)
-    plot_pnl_distribution(df["Total PnL"])
-    plot_pnl_distribution(df["Adjusted PnL"])
+    # plot_pnl_distribution(df["Total PnL"])
+    # plot_pnl_distribution(df["Adjusted PnL"])
     
     file_path = ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv"
     df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
@@ -412,8 +412,8 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
 
 
 if __name__ == "__main__":
-    ticker1 = "AMD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
-    ticker2 = "NVDA" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
+    ticker1 = "GLD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO, XME
+    ticker2 = "GC=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP, TIO-F
     startDate = "2010-01-01"
     endDate = datetime.date.today()
     leverage = 10
