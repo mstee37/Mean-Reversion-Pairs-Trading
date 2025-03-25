@@ -405,8 +405,9 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     file_path = ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv"
     df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
     
-    sharpe = sharpe_ratio.get_sharpe(file_path)
-    print(f"Sharpe Ratio: {sharpe}")
+    sharpe, mdd = sharpe_ratio.get_sharpe(file_path)
+    print(f"Sharpe Ratio: {sharpe.round(2)}")
+    print(f"Maximum Drawdown: {(mdd).round(5)}")
     
     return None
 

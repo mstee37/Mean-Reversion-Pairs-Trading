@@ -81,14 +81,19 @@ def get_sharpe(file_path):
     # Calculate the Sharpe ratio
     sharpe_ratio = calculate_stats.get_sharpe_ratio(df_index)
     
-    return sharpe_ratio
+    df = df_index.copy()
+    df["prod"] = (df["pct_change"]+1).cumprod()
+    mdd = calculate_stats.calculate_draw_down(df, "prod")["mdd"].iloc[-1]
+    
+    return sharpe_ratio, mdd
 
 if __name__ == "__main__":
     # File path to the input CSV
     file_path = "GLD VS GC=F RollingWindow = 180.csv"
     
     # Calculate the Sharpe ratio
-    sharpe_ratio = get_sharpe(file_path)
+    sharpe_ratio, mdd = get_sharpe(file_path)
 
     # Print the result
     print(f"Sharpe Ratio: {sharpe_ratio}")
+    print(f"MDD: {mdd}")

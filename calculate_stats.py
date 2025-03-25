@@ -139,37 +139,37 @@ def calculate_draw_down(df, column, freq_days=60, full_period=True):
         return df_result
 
 
-def calculate_model_performance_stats(df, column, base=1000):
-    """
-    Calculates performance statistics for a given financial time series.
+# def calculate_model_performance_stats(df, column, base=1000):
+#     """
+#     Calculates performance statistics for a given financial time series.
 
-    Parameters:
-    -----------
-    df : pd.DataFrame
-        DataFrame containing the financial time series data.
-    column : str
-        Column name in df containing the time series values.
+#     Parameters:
+#     -----------
+#     df : pd.DataFrame
+#         DataFrame containing the financial time series data.
+#     column : str
+#         Column name in df containing the time series values.
 
-    Returns:
-    --------
-    dict
-        Dictionary with the raw value, Sharpe ratio, and maximum drawdown for the specified column.
+#     Returns:
+#     --------
+#     dict
+#         Dictionary with the raw value, Sharpe ratio, and maximum drawdown for the specified column.
 
-        Keys:
-        - {column} : float
-            The raw value of the time series at the last date.
-        - {column}_sharpe : float
-            The Sharpe ratio of the time series over the entire period.
-        - {column}_mdd : float
-            The maximum drawdown of the time series over the entire period.
-    """
+#         Keys:
+#         - {column} : float
+#             The raw value of the time series at the last date.
+#         - {column}_sharpe : float
+#             The Sharpe ratio of the time series over the entire period.
+#         - {column}_mdd : float
+#             The maximum drawdown of the time series over the entire period.
+#     """
 
-    raw_value = df[column].iloc[-1]
-    returns = raw_value/base-1
-    sharpe = get_sharpe_ratio(df.index[0], df.index[-1], df, column, full_period=True)
-    mdd = calculate_draw_down(df, column, 365, True)["mdd"].iloc[-1]
+#     raw_value = df[column].iloc[-1]
+#     returns = raw_value/base-1
+#     sharpe = get_sharpe_ratio(df.index[0], df.index[-1], df, column, full_period=True)
+#     mdd = calculate_draw_down(df, column, 365, True)["mdd"].iloc[-1]
 
-    return {column: raw_value, column + "_returns":returns, column + "_sharpe": sharpe, column + "_mdd": mdd}
+#     return {column: raw_value, column + "_returns":returns, column + "_sharpe": sharpe, column + "_mdd": mdd}
 
 
 def main():
@@ -177,6 +177,9 @@ def main():
     df = pd.read_csv("test.csv")
     print(df.head())
     print(get_sharpe_ratio(df))
+    df["prod"] = (df["pct_change"]+1).cumprod()
+    # print(df)
+    print(calculate_draw_down(df, "prod")["mdd"].iloc[-1])
     pass
 
 if __name__ == "__main__":
