@@ -6,6 +6,7 @@ from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import datetime
+import sharpe_ratio 
     
 def signal(df,ticker1,ticker2,rollingWindow):
     
@@ -401,14 +402,18 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     plot_pnl_distribution(df["Total PnL"])
     plot_pnl_distribution(df["Adjusted PnL"])
     
+    file_path = ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv"
     df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
+    
+    sharpe = sharpe_ratio.get_sharpe(file_path)
+    print(f"Sharpe Ratio: {sharpe}")
     
     return None
 
 
 if __name__ == "__main__":
-    ticker1 = "GLD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
-    ticker2 = "GC=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
+    ticker1 = "AMD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO
+    ticker2 = "NVDA" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP
     startDate = "2010-01-01"
     endDate = datetime.date.today()
     leverage = 10

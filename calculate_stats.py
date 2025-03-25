@@ -23,11 +23,12 @@ def get_risk_free_rate(start_date, end_date):
     df_risk_free = df_risk_free.set_index("date")
     df_risk_free["dgs10"] = df_risk_free["dgs10"].replace({".": np.nan}).astype("float")
     df_risk_free = df_risk_free.resample("D").last().ffill()
-    df_risk_free = df_risk_free[(df_risk_free.index >= start_date) & (df_risk_free.index <= end_date)]
+    # print(df_risk_free)
+    # df_risk_free = df_risk_free[(df_risk_free.index >= start_date) & (df_risk_free.index <= end_date)]
 
     return df_risk_free
 
-def get_sharpe_ratio(start_date, end_date, df_index=None, col=None, portfolio_ids=[], freq="YE", full_period=False):
+def get_sharpe_ratio(df_index=None, start_date=None, end_date=None, col=None, portfolio_ids=[], freq="YE", full_period=False):
     """
     Generate annualized sharpe ratio for indices. Input may be given as df_index or portfolio_ids.
 
@@ -36,37 +37,54 @@ def get_sharpe_ratio(start_date, end_date, df_index=None, col=None, portfolio_id
     :param freq: frequency of the sharpe ratios returned, either ME (month end) or YE (year end)
     :param full_period: if True, this precedes freq and returns the sharpe ratio over the full period
     """
-    if (not full_period) and (freq not in ["ME", "YE"]):
-        raise ValueError("freq must be ME or YE.")
+    # if (not full_period) and (freq not in ["ME", "YE"]):
+    #     raise ValueError("freq must be ME or YE.")
 
     df_index = df_index.loc[start_date:end_date]
-
+    df_index.set_index("date",inplace=True, drop=True)
+    df_index.index = pd.to_datetime(df_index.index)
+    # print(df_index.head(50))
     df_risk_free = get_risk_free_rate(start_date, end_date)
+    # print(df_risk_free)
 
     df_risk_free.index = pd.to_datetime(df_risk_free.index)
-    df_risk_free = df_risk_free.reindex(df_index.index).ffill().bfill()
+    df_merge = pd.merge(df_index, df_risk_free, left_index=True, right_index=True, how="left")
+    df_merge = df_merge.ffill().bfill()
+    # print(df_merge.isna().sum())
+    # print(df_merge)
 
-    df_sharpe = df_index[col].pct_change().fillna(0) * 100
-    df_sharpe = df_sharpe.iloc[1:]
+    df_merge["dgs10"] = df_merge["dgs10"]/252/100
+    returns = (1+df_merge["pct_change"]-df_merge["dgs10"]).prod()-1
 
-    if full_period:
-        df_sharpe = df_sharpe.sub(df_risk_free["dgs10"] / 365, axis=0)
-        return df_sharpe.mean() / df_sharpe.std() * np.sqrt(365)
+    # print(returns)
+    
+    total_days = df_merge.index[-1] - df_merge.index[0]
+    total_days = total_days.days
+    # print(total_days)
+    sd = df_merge["pct_change"].std()*np.sqrt(total_days)
+    # print(sd)
+    sharpe = returns / sd * np.sqrt(252/total_days)
+    # sharpe = (df_merge["pct_change"]-df_merge["dgs10"]).mean() / df_merge["pct_change"].std() * np.sqrt(252)
+    # print(sharpe)
+    
+    # if full_period:
+    #     df_sharpe = df_sharpe.sub(df_risk_free["dgs10"] / 365, axis=0)
+    #     return df_sharpe.mean() / df_sharpe.std() * np.sqrt(365)
 
-    def monthly_sharpe_from_daily(x):
-        risk_free = df_risk_free.loc[x.index[-1]].values[0] / 12
-        x = (100 * ((1 + x / 100).prod() - 1) - risk_free) / (x.std() * np.sqrt(len(x)))
-        return x
+    # def monthly_sharpe_from_daily(x):
+    #     risk_free = df_risk_free.loc[x.index[-1]].values[0] / 12
+    #     x = (100 * ((1 + x / 100).prod() - 1) - risk_free) / (x.std() * np.sqrt(len(x)))
+    #     return x
 
-    def annualized_daily(x):
-        risk_free = df_risk_free.loc[x.index[-1]].values[0]
-        return (100 * ((1 + x / 100).prod() - 1) - risk_free) / (x.std() * np.sqrt(len(x)))
+    # def annualized_daily(x):
+    #     risk_free = df_risk_free.loc[x.index[-1]].values[0]
+    #     return (100 * ((1 + x / 100).prod() - 1) - risk_free) / (x.std() * np.sqrt(len(x)))
 
-    df_sharpe = df_sharpe.groupby(pd.Grouper(level="date", freq=freq)).apply(
-        annualized_daily if freq == "YE" else monthly_sharpe_from_daily
-    )
+    # df_sharpe = df_sharpe.groupby(pd.Grouper(level="date", freq=freq)).apply(
+    #     annualized_daily if freq == "YE" else monthly_sharpe_from_daily
+    # )
 
-    return df_sharpe
+    return sharpe
 
 def calculate_draw_down(df, column, freq_days=60, full_period=True):
     """
@@ -156,6 +174,9 @@ def calculate_model_performance_stats(df, column, base=1000):
 
 def main():
     # print(get_risk_free_rate().head())
+    df = pd.read_csv("test.csv")
+    print(df.head())
+    print(get_sharpe_ratio(df))
     pass
 
 if __name__ == "__main__":
