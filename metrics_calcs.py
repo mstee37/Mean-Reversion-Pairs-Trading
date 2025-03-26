@@ -79,21 +79,30 @@ def get_sharpe(file_path):
     df_index = df[["date", "pct_change"]]
     
     # Calculate the Sharpe ratio
-    sharpe_ratio = calculate_stats.get_sharpe_ratio(df_index)
+    returns, sharpe_ratio, sortino_ratio = calculate_stats.get_sharpe_ratio(df_index)
     
     df = df_index.copy()
     df["prod"] = (df["pct_change"]+1).cumprod()
     mdd = calculate_stats.calculate_draw_down(df, "prod")["mdd"].iloc[-1]
     
-    return sharpe_ratio, mdd
+    return {
+        "ticker1": ticker1,
+        "ticker2": ticker2,
+        "returns": returns,
+        "sharpe_ratio": sharpe_ratio,
+        "sortino_ratio": sortino_ratio,
+        "mdd": mdd
+    }
 
 if __name__ == "__main__":
     # File path to the input CSV
     file_path = "GLD VS GC=F RollingWindow = 180.csv"
     
     # Calculate the Sharpe ratio
-    sharpe_ratio, mdd = get_sharpe(file_path)
+    res = get_sharpe(file_path)
 
-    # Print the result
-    print(f"Sharpe Ratio: {sharpe_ratio}")
-    print(f"MDD: {mdd}")
+    # Print the results
+    print(f"Cumulative Returns: {res['returns']}")
+    print(f"Sharpe Ratio: {res['sharpe_ratio']}")
+    print(f"Sortino Ratio: {res['sortino_ratio']}")
+    print(f"Maximum Drawdown (MDD): {res['mdd']}")

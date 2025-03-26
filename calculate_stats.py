@@ -64,27 +64,14 @@ def get_sharpe_ratio(df_index=None, start_date=None, end_date=None, col=None, po
     sd = df_merge["pct_change"].std()*np.sqrt(total_days)
     # print(sd)
     sharpe = returns / sd * np.sqrt(252/total_days)
-    # sharpe = (df_merge["pct_change"]-df_merge["dgs10"]).mean() / df_merge["pct_change"].std() * np.sqrt(252)
-    # print(sharpe)
     
-    # if full_period:
-    #     df_sharpe = df_sharpe.sub(df_risk_free["dgs10"] / 365, axis=0)
-    #     return df_sharpe.mean() / df_sharpe.std() * np.sqrt(365)
+    downside_risk = df_merge["pct_change"].apply(lambda x: min(x, 0)).std()*np.sqrt(total_days)
+    # print(downside_risk)
 
-    # def monthly_sharpe_from_daily(x):
-    #     risk_free = df_risk_free.loc[x.index[-1]].values[0] / 12
-    #     x = (100 * ((1 + x / 100).prod() - 1) - risk_free) / (x.std() * np.sqrt(len(x)))
-    #     return x
-
-    # def annualized_daily(x):
-    #     risk_free = df_risk_free.loc[x.index[-1]].values[0]
-    #     return (100 * ((1 + x / 100).prod() - 1) - risk_free) / (x.std() * np.sqrt(len(x)))
-
-    # df_sharpe = df_sharpe.groupby(pd.Grouper(level="date", freq=freq)).apply(
-    #     annualized_daily if freq == "YE" else monthly_sharpe_from_daily
-    # )
-
-    return sharpe
+    sortino = returns / downside_risk * np.sqrt(252/total_days)
+    # print(sortino)
+    
+    return returns, sharpe, sortino
 
 def calculate_draw_down(df, column, freq_days=60, full_period=True):
     """
@@ -175,11 +162,13 @@ def calculate_draw_down(df, column, freq_days=60, full_period=True):
 def main():
     # print(get_risk_free_rate().head())
     df = pd.read_csv("test.csv")
-    print(df.head())
+    # print(df.head())
     print(get_sharpe_ratio(df))
-    df["prod"] = (df["pct_change"]+1).cumprod()
-    # print(df)
-    print(calculate_draw_down(df, "prod")["mdd"].iloc[-1])
+    # df["prod"] = (df["pct_change"]+1).cumprod()
+    # # print(df)
+    # print(calculate_draw_down(df, "prod")["mdd"].iloc[-1])
+    
+    
     pass
 
 if __name__ == "__main__":

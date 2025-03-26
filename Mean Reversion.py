@@ -6,7 +6,7 @@ from statsmodels.tsa.stattools import adfuller, coint
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import datetime
-import sharpe_ratio 
+import metrics_calcs 
     
 def signal(df,ticker1,ticker2,rollingWindow):
     
@@ -405,19 +405,38 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
     file_path = ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv"
     df.to_csv(ticker1+" VS "+ticker2+" RollingWindow = "+str(rollingWindow)+".csv", index=False)
     
-    sharpe, mdd = sharpe_ratio.get_sharpe(file_path)
-    print(f"Sharpe Ratio: {sharpe.round(2)}")
-    print(f"Maximum Drawdown: {(mdd).round(5)}")
+    res = metrics_calcs.get_sharpe(file_path)
     
-    return None
+    print(f"Cumulative Returns: {res['returns']}")
+    print(f"Sharpe Ratio: {res['sharpe_ratio']}")
+    print(f"Sortino Ratio: {res['sortino_ratio']}")
+    print(f"Maximum Drawdown (MDD): {res['mdd']}")
+    
+    return res
 
 
 if __name__ == "__main__":
-    ticker1 = "GLD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO, XME
-    ticker2 = "GC=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP, TIO-F
+    ticker1 = "2330.TW" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO, XME
+    ticker2 = "2454.TW" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP, TIO-F
     startDate = "2010-01-01"
     endDate = datetime.date.today()
     leverage = 10
     rollingWindow = 180
 
-    backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
+    # backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
+
+    tickers1 = ["HG=F", "2330.TW", "NVDA", "GLD", "KO"]
+    tickers2 = ["COPX", "2454.TW", "AMD", "GC=F", "PEP"]
+    
+    ticker_pairs = zip(tickers1, tickers2)
+    
+    results = []
+    
+    for i in ticker_pairs:
+        print(i)
+    
+        res = backtest_PairsStrat(i[0], i[1], startDate, endDate, leverage, rollingWindow)
+        results.append(res)
+    
+    pd.DataFrame(results).to_csv(f"output.csv", index=False)
+    print(pd.DataFrame(results))
