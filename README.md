@@ -19,3 +19,8 @@ most using 180-day rolling std as signals, 15 year TS
 - **2330.TW and 2454.TW:** Performed better in the 5 year TS with a Sharpe ratio of ~1, indicating inefficiency and volatility.
 - **KO and PEP:** Weak performance, likely due to low trading volume.
 - **NVDA and AMD:** Negative performance, suggesting a highly efficient market where high-frequency trading may have already arbitraged opportunities away.
+
+On Reinforcement learning method
+- able to turn losing strat to winning strat but low sharpe
+- able to improve gold pair sharpe to 0.85 and sortino to 3
+
