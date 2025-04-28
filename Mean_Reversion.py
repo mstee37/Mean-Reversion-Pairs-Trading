@@ -54,8 +54,12 @@ def pnl(df, leverage, ticker1, ticker2, rollingWindow):
 
     df["leverage"] = leverage
 
-    df["ratio"] = abs(df[ticker2+"_Close"] * df[ticker2+"_dailyReturns"]) / abs(df[ticker1+"_Close"]  * df[ticker1+"_dailyReturns"])
+    # hedge ratio based on t-1 returns
+    # df["ratio"] = abs(df[ticker2+"_Close"] * df[ticker2+"_dailyReturns"]) / abs(df[ticker1+"_Close"]  * df[ticker1+"_dailyReturns"])
     
+    #hedge ratio based on rolling std
+    df["ratio"] = abs(df[ticker2+"_Close"] * df[ticker2+"_rolling avg"]) / abs(df[ticker1+"_Close"]  * df[ticker1+"_rolling avg"])
+
     # naming
     
     # Initialize new columns
@@ -316,7 +320,7 @@ def pnl2(df, ticker1, ticker2):
 
 def printStats(df, ticker1, ticker2, rollingWindow):
     
-    # print("{} pnl = {:.2f}".format(ticker1, df[ticker1+"_PnL"].sum()))
+    # print("{} pnl = {:.2f}".format(ticker1, df[ticker1+"_PnL"].sum()))rewar
     # print("{} pnl = {:.2f}".format(ticker2, df[ticker2+"_PnL"].sum()))
     # print("Total PnL = {:.2f}".format(df["Total PnL"].sum()))
     # print("Risk Adjusted Total PnL = {:.2f}".format(df["Adjusted PnL"].sum()))
@@ -416,27 +420,27 @@ def backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingW
 
 
 if __name__ == "__main__":
-    ticker1 = "2330.TW" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO, XME
-    ticker2 = "2454.TW" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP, TIO-F
+    ticker1 = "GLD" # HG=F (copper futures), 2330.TW, NVDA, GLD, KO, XME
+    ticker2 = "GC=F" # copx (copper ETF), 2454.TW, AMD, GC=F, PEP, TIO-F
     startDate = "2010-01-01"
     endDate = datetime.date.today()
     leverage = 10
     rollingWindow = 180
 
-    # backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
+    backtest_PairsStrat(ticker1, ticker2, startDate, endDate, leverage, rollingWindow)
 
-    tickers1 = ["HG=F", "2330.TW", "NVDA", "GLD", "KO"]
-    tickers2 = ["COPX", "2454.TW", "AMD", "GC=F", "PEP"]
+    # tickers1 = ["HG=F", "2330.TW", "NVDA", "GLD", "KO"]
+    # tickers2 = ["COPX", "2454.TW", "AMD", "GC=F", "PEP"]
     
-    ticker_pairs = zip(tickers1, tickers2)
+    # ticker_pairs = zip(tickers1, tickers2)
     
-    results = []
+    # results = []
     
-    for i in ticker_pairs:
-        print(i)
+    # for i in ticker_pairs:
+    #     print(i)
     
-        res = backtest_PairsStrat(i[0], i[1], startDate, endDate, leverage, rollingWindow)
-        results.append(res)
+    #     res = backtest_PairsStrat(i[0], i[1], startDate, endDate, leverage, rollingWindow)
+    #     results.append(res)
     
-    pd.DataFrame(results).to_csv(f"output.csv", index=False)
-    print(pd.DataFrame(results))
+    # pd.DataFrame(results).to_csv(f"output.csv", index=False)
+    # print(pd.DataFrame(results))
